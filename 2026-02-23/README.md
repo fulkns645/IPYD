@@ -1,4 +1,4 @@
-## 2026-02-23 - semana 03 - Evidencias del impacto del acceso a la RAM
+# 2026-02-23 - semana 03 - Evidencias del impacto del acceso a la RAM
 
 - **Nombre:** Juan Sebastian Ospina Maya
 - **Codigo:** 202041554 - 2724
