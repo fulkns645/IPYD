@@ -28,13 +28,13 @@ if __name__ == "__main__":
     
     print(f"\nTamaño del vector: {N}\n")
     
-    # 🔹 Versión tradicional (listas Python)
+    # Versión tradicional (listas Python)
     a_lista = list(range(N))
     b_lista = list(range(N))
     
     resultado_for = suma_tradicional(a_lista, b_lista)
     
-    # 🔹 Versión vectorizada (NumPy)
+    # Versión vectorizada (NumPy)
     a_np = np.arange(N)
     b_np = np.arange(N)
     

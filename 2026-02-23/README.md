@@ -1,8 +1,8 @@
 ## 2026-02-23 - semana 03 - Evidencias del impacto del acceso a la RAM
 
-- Nombre: Juan Sebastian Ospina Maya
-- Codigo: 202041554 - 2724
-- Correo: juan.sebastian.ospina@correounivalle.edu.co
+- **Nombre:** Juan Sebastian Ospina Maya
+- **Codigo:** 202041554 - 2724
+- **Correo:** juan.sebastian.ospina@correounivalle.edu.co
 
 ## Adaptaciones realizadas
 
