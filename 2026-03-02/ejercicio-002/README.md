@@ -149,18 +149,3 @@ La versión implementada con **NumPy** presentó el mejor rendimiento debido a q
 La versión con **multiprocessing** también mostró mejoras en el rendimiento al aumentar el número de procesos, pero su desempeño se ve afectado por el overhead asociado a la creación y coordinación de procesos.
 
 En conclusión, para operaciones matemáticas sobre grandes volúmenes de datos, **las operaciones vectorizadas de NumPy son significativamente más eficientes que las implementaciones manuales con multiprocessing**.
-
----
-
-# Video de demostración
-
-En el siguiente video se muestra la ejecución del programa con:
-
-- 1 proceso/hilo
-- 2 procesos/hilos
-- 4 procesos/hilos
-- 8 procesos/hilos
-
-y el análisis de los resultados obtenidos.
-
----
