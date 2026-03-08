@@ -30,17 +30,17 @@ El "almuerzo no es gratis": el paralelismo tiene un costo.
 
 **(Python – Modelo SIMD)**
 
-Se realizó la suma de dos vectores de 10 millones de elementos:
+Se realizó la suma de dos vectores de 100 millones de elementos:
 
 - Implementación con bucle `for` tradicional.
 - Implementación vectorizada usando `NumPy`.
 
 ### Objetivo
 
-Observar cómo el modelo **SIMD (Single Instruction, Multiple Data)** acelera operaciones matemáticas masivas.
+El objetivo del experimento es analizar el **tiempo de ejecución**, calcular el **Speedup (aceleración)** y la **Eficiencia** al ejecutar el programa con diferentes cantidades de procesos o hilos.
 
 ### Conclusión
 
 La versión vectorizada es significativamente más rápida, ya que aprovecha optimizaciones en C y uso interno de instrucciones SIMD del procesador.
 
-- Ejercicio 3: El reto de la Placa de Calor (Conceptual + Pseudocódigo)
+## Ejercicio 3: El reto de la Placa de Calor (Conceptual + Pseudocódigo)
