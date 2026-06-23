@@ -1,0 +1,16 @@
+# Ejecutables
+*.exe
+*.out
+
+# Objetos compilados
+*.o
+
+# Archivos temporales
+*.log
+*.tmp
+
+# Configuración de VS Code
+.vscode/
+
+# Carpeta temporal
+temporal/*
