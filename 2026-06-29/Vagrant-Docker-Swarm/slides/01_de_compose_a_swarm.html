@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm 01: De Docker Compose a Docker Swarm</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f87171;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+            font-family: 'Urbanist', sans-serif;
+            text-transform: none;
+            font-weight: 800;
+        }
+
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-muted { color: var(--text-muted); }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--slide-bg);
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+
+        .card-tight { padding: 18px; }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.58em;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.16); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-red { background: rgba(248, 113, 113, 0.16); color: var(--accent-red); border: 1px solid var(--accent-red); }
+
+        pre {
+            background: var(--code-bg) !important;
+            border-radius: 10px !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+
+        .reveal .slides section {
+            text-align: left;
+        }
+
+        .reveal .slides section h2 {
+            text-align: center;
+            margin-bottom: 34px;
+        }
+
+        .reveal ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .reveal ul li {
+            margin-bottom: 14px;
+            position: relative;
+            padding-left: 30px;
+            font-size: 0.75em;
+            line-height: 1.35;
+        }
+
+        .reveal ul li::before {
+            content: "\f121";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+        }
+
+        .big-number {
+            font-size: 2.5em;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .arrow {
+            color: var(--accent-secondary);
+            font-size: 1.4em;
+            text-align: center;
+        }
+
+        .compare-title {
+            font-size: 0.95em;
+            margin: 0 0 10px 0;
+        }
+
+        .small {
+            font-size: 0.72em;
+            line-height: 1.35;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div style="text-align: center; margin-top: 40px;">
+                    <div class="badge badge-blue">Sistemas Operativos y Servicios de Red</div>
+                    <h1 style="font-size: 2.25em;">De Docker Compose a <span class="text-neon-blue">Docker Swarm</span></h1>
+                    <h3 class="text-neon-orange" style="font-size: 1.15em;">Primer contacto con orquestación de contenedores</h3>
+                    <p style="font-size: 0.78em; opacity: 0.75; margin-top: 22px;">Servicios, réplicas, estado deseado y ejecución distribuida</p>
+                    <div style="margin-top: 42px; opacity: 0.62; font-size: 0.75em;">
+                        <i class="fa-solid fa-clock"></i> Duración sugerida: 10 minutos | Bloque 1 de la sesión Swarm
+                    </div>
+                </div>
+                <aside class="notes">
+                    Abrir la sesión conectando con lo que ya conocen: contenedores, redes, volúmenes y docker compose. La pregunta central: ¿qué problema aparece cuando queremos operar varios contenedores en más de una máquina?
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-layer-group text-neon-blue"></i> Lo que ya resolvimos con Docker Compose</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-green">Compose</div>
+                        <h4 class="text-green compare-title">Aplicaciones multi-contenedor</h4>
+                        <ul>
+                            <li>Declaramos servicios en un archivo YAML.</li>
+                            <li>Levantamos contenedores, redes y volúmenes con un comando.</li>
+                            <li>Facilitamos laboratorios reproducibles y ambientes de desarrollo.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-orange">Ejemplo mental</div>
+                        <h4 class="text-neon-orange compare-title">Una aplicación en un host</h4>
+                        <pre><code class="language-yaml">services:
+  web:
+    image: nginx
+    ports:
+      - "8080:80"
+  db:
+    image: postgres:14</code></pre>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Reforzar que Compose no es obsoleto. Compose es excelente para desarrollo, laboratorios, pruebas locales y despliegues sencillos de un solo nodo.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-triangle-exclamation text-neon-orange"></i> El límite: una sola máquina</h2>
+                <div class="grid-3">
+                    <div class="card card-tight">
+                        <div class="badge badge-red">Fallo</div>
+                        <p class="small">Si el host cae, caen todos los contenedores que dependen de él.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-red">Escala</div>
+                        <p class="small">Escalar en una sola máquina queda limitado por CPU, memoria, disco y red del host.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-red">Operación</div>
+                        <p class="small">El ciclo de vida de contenedores distribuidos exige coordinación entre nodos.</p>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 25px; text-align: center;">
+                    <p style="font-size: 0.9em; margin: 0;"><strong class="text-neon-blue">Pregunta clave:</strong> ¿cómo mantenemos una aplicación viva, escalable y accesible cuando ya no cabe en un solo host?</p>
+                </div>
+                <aside class="notes">
+                    Aquí aparece la necesidad de orquestación. No presentar Swarm como moda, sino como respuesta a un problema operativo concreto.
+                </aside>
+            </section>
+
+	    <section>
+	    <h2>Escalado Vertical vs Escalado Horizontal</h2>
+	    <p>Dos formas de aumentar la capacidad de cómputo en la nube:</p>
+
+	    <img src="figures/03_slides_video_04-01-Vertical_Horizontal.png" alt="Comparación entre escalado vertical y escalado horizontal en EC2" style="width: 100%; max-width: 1100px; display: block; margin: 20px auto;" />
+
+	    <aside class="notes">
+	    Usar la figura para contrastar claramente: escalar verticalmente (una máquina más grande) frente a escalar horizontalmente (varios workers EC2 coordinados). Conectar explícitamente que Dask + EC2 se alinean con el escalado horizontal.
+	    </aside>
+	    </section>
+
+
+            <section>
+                <h2><i class="fa-solid fa-sitemap text-neon-blue"></i> Entonces aparece la orquestación</h2>
+                <div class="card" style="max-width: 920px; margin: 0 auto;">
+                    <p style="font-size: 0.85em; color: var(--text-muted); text-align: center; margin-bottom: 24px;">
+                        Orquestar significa pasar de administrar contenedores aislados a declarar el estado esperado de servicios distribuidos.
+                    </p>
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center;">
+                        <div class="card card-tight" style="text-align: center; border-color: rgba(251,146,60,0.35);">
+                            <div class="badge badge-orange">Antes</div>
+                            <h4 class="text-neon-orange">Contenedores</h4>
+                            <p class="small text-muted">Crear, detener, borrar y conectar contenedores explícitamente.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="card card-tight" style="text-align: center; border-color: rgba(56,189,248,0.35);">
+                            <div class="badge badge-blue">Ahora</div>
+                            <h4 class="text-neon-blue">Servicios</h4>
+                            <p class="small text-muted">Declarar cuántas réplicas deben existir y dejar que el orquestador actúe.</p>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Enfatizar la transición de imperativo a declarativo. El usuario declara el estado deseado, no cada contenedor individual.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-bullseye text-neon-orange"></i> Estado deseado</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <h4 class="text-neon-blue" style="font-size: 1em;">La idea central</h4>
+                        <p class="small text-muted">El usuario declara lo que quiere: por ejemplo, un servicio web con tres réplicas. Swarm compara continuamente ese estado deseado con el estado real.</p>
+                    </div>
+                    <div class="card">
+                        <pre><code class="language-bash">docker service create \
+  --name web \
+  --replicas 3 \
+  -p 8080:80 \
+  nginx</code></pre>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 24px;">
+                    <p style="font-size: 0.82em; margin: 0;"><strong class="text-neon-orange">Lectura correcta:</strong> “quiero que el clúster mantenga tres instancias disponibles del servicio <code>web</code>”.</p>
+                </div>
+                <aside class="notes">
+                    Si un contenedor muere, Swarm no intenta preservar ese contenedor como individuo. Intenta restaurar el número de réplicas del servicio.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-code-compare text-neon-blue"></i> Compose vs. Swarm</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-orange">Docker Compose</div>
+                        <ul>
+                            <li>Orientado a una máquina.</li>
+                            <li>Excelente para desarrollo y laboratorios.</li>
+                            <li>Levanta servicios definidos en YAML.</li>
+                            <li>No coordina por sí solo un clúster multi-nodo.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-blue">Docker Swarm</div>
+                        <ul>
+                            <li>Convierte varios hosts Docker en un clúster.</li>
+                            <li>Introduce servicios, tasks y réplicas.</li>
+                            <li>Mantiene estado deseado.</li>
+                            <li>Permite redes overlay y publicación distribuida de servicios.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Evitar presentar Compose y Swarm como enemigos. Swarm usa archivos tipo Compose mediante docker stack deploy, pero el modelo de ejecución cambia.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-code-compare text-neon-blue"></i> Compose vs. Swarm (2)</h2>
+                    <img src="figures/01_de_compose_a_swarm.png" alt="De Compose a Swarm" style="width: 100%; max-width: 1100px; display: block; margin: 20px auto;" />
+                <aside class="notes">
+                    Evitar presentar Compose y Swarm como enemigos. Swarm usa archivos tipo Compose mediante docker stack deploy, pero el modelo de ejecución cambia.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-cubes text-neon-orange"></i> Cambio de vocabulario</h2>
+                <div class="card" style="max-width: 960px; margin: 0 auto; font-size: 0.82em;">
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 14px; align-items: center;">
+                        <div class="card card-tight" style="text-align: center;">
+                            <div class="badge badge-blue">Service</div>
+                            <p class="small text-muted">Declaración lógica: imagen, réplicas, puertos, red y políticas.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="card card-tight" style="text-align: center;">
+                            <div class="badge badge-orange">Task</div>
+                            <p class="small text-muted">Unidad de trabajo que Swarm asigna a un nodo concreto.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="card card-tight" style="text-align: center;">
+                            <div class="badge badge-green">Container</div>
+                            <p class="small text-muted">Proceso real que ejecuta la task en el host asignado.</p>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 22px; background: rgba(15, 23, 42, 0.7);">
+                        <p style="margin: 0; font-size: 0.78em;"><strong class="text-neon-blue">Idea clave:</strong> en Swarm no pensamos primero en contenedores individuales; pensamos en servicios y réplicas.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Esta diapositiva prepara la práctica posterior: docker service ls, docker service ps y docker container ls muestran niveles diferentes del sistema.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-network-wired text-neon-blue"></i> ¿Qué agrega Swarm al modelo?</h2>
+                <div class="grid-3">
+                    <div class="card card-tight">
+                        <div class="badge badge-blue">Clúster</div>
+                        <p class="small">Varios nodos Docker coordinados como una unidad lógica.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-blue">Scheduling</div>
+                        <p class="small">Asignación de tasks a nodos disponibles según el estado del clúster.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-blue">Reconciliación</div>
+                        <p class="small">Corrección automática cuando el estado real se aleja del estado deseado.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-orange">Routing</div>
+                        <p class="small">Acceso al servicio publicado sin depender de conocer la réplica exacta.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-orange">Overlay</div>
+                        <p class="small">Redes virtuales para comunicación entre servicios ubicados en hosts distintos.</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-orange">Stack</div>
+                        <p class="small">Despliegue declarativo de múltiples servicios, redes y volúmenes.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    No profundizar todavía en cada concepto. Presentarlos como promesa de lo que se verá en la sesión completa.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-terminal text-neon-orange"></i> Mini-ruta de la práctica</h2>
+                <div class="card">
+                    <pre><code class="language-bash"># 1. Crear el cluster
+$ docker swarm init
+
+# 2. Crear un servicio
+$ docker service create --name web -p 8080:80 nginx
+
+# 3. Escalar el servicio
+$ docker service scale web=3
+
+# 4. Observar servicios y tasks
+$ docker service ls
+$ docker service ps web</code></pre>
+                </div>
+                <div style="margin-top: 20px; font-size: 0.75em; color: var(--text-muted);">
+                    <p><i class="fa-solid fa-arrow-right text-neon-blue"></i> La práctica no busca memorizar comandos, sino observar cómo cambia el modelo de operación.</p>
+                </div>
+                <aside class="notes">
+                    Usar esta diapositiva para anticipar la parte práctica. La meta es que los estudiantes sepan qué observar en la terminal.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-check-double text-neon-blue"></i> Takeaways</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-green">Lo que te llevas</div>
+                        <ul>
+                            <li><strong>Compose</strong> simplifica apps multi-contenedor, pero asume <strong>un solo host</strong>.</li>
+                            <li>Al crecer, el problema cambia: <strong>fallos</strong>, <strong>escala</strong> y <strong>coordinación</strong> entre nodos.</li>
+                            <li>La orquestación es un cambio de enfoque: de administrar contenedores a declarar <strong>servicios</strong>.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-blue">Swarm en una frase</div>
+                        <ul>
+                            <li>Unifica varios hosts en un <strong>clúster</strong> y aplica <strong>scheduling</strong> de tasks.</li>
+                            <li>Mantiene el <strong>estado deseado</strong> (ej: réplicas) mediante <strong>reconciliación</strong> automática.</li>
+                            <li>Habilita ejecución distribuida con <strong>overlay</strong>, <strong>routing</strong> y despliegue por <strong>stack</strong>.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 24px; text-align: center;">
+                    <p style="font-size: 0.82em; margin: 0;"><strong class="text-neon-orange">Idea clave:</strong> en Swarm pensamos primero en <strong>servicios</strong> y <strong>réplicas</strong>, no en contenedores individuales.</p>
+                </div>
+                <aside class="notes">
+                    Slide de cierre del bloque: reforzar el cambio imperativo -> declarativo y el objetivo operacional (mantener servicios vivos y escalables en varios nodos).
+                </aside>
+            </section>
+
+            <section data-background-color="#0f172a">
+                <h2><i class="fa-solid fa-brain text-neon-orange"></i> Pregunta de transición</h2>
+                <div class="card" style="margin-bottom: 25px;">
+                    <p style="font-size: 0.88em; margin: 0;"><strong>Si un servicio fue declarado con 3 réplicas y una de ellas falla, ¿qué debería hacer el orquestador?</strong></p>
+                </div>
+                <div class="grid-2">
+                    <div class="card card-tight">
+                        <div class="badge badge-blue">Para discutir</div>
+                        <p class="small text-muted">¿Debe reiniciar exactamente el mismo contenedor?</p>
+                    </div>
+                    <div class="card card-tight">
+                        <div class="badge badge-orange">Idea esperada</div>
+                        <p class="small text-muted">Debe restaurar el estado deseado: tres réplicas disponibles del servicio.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Esta pregunta conecta directamente con la siguiente parte de la clase: crear un servicio, escalarlo y matar un contenedor para observar la reconciliación.
+                </aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

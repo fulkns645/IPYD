@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  web:
+    image: traefik/whoami:v1.10
+    ports:
+      - target: 80
+        published: 8080
+        protocol: tcp
+        mode: ingress
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+      placement:
+        # Fijamos la carga al nodo etiquetado como "app" para observar claramente
+        # plano de control (manager) vs plano de ejecucion (nodo que corre contenedores).
+        constraints:
+          - node.labels.labrole == app

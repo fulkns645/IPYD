@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm: Cierre, Actualización y Límites</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f87171;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+            font-family: 'Urbanist', sans-serif;
+            text-transform: none;
+            font-weight: 800;
+        }
+
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--slide-bg);
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+
+        .mini-card {
+            background: rgba(15, 23, 42, 0.75);
+            padding: 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.55em;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-red { background: rgba(248, 113, 113, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+
+        pre {
+            background: var(--code-bg) !important;
+            border-radius: 10px !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+
+        .reveal .slides section {
+            text-align: left;
+        }
+
+        .reveal .slides section h2 {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .reveal ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .reveal ul li {
+            margin-bottom: 13px;
+            position: relative;
+            padding-left: 30px;
+            font-size: 0.76em;
+            line-height: 1.35;
+        }
+
+        .reveal ul li::before {
+            content: "\f0e7";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+        }
+
+        .centered { text-align: center; }
+        .muted { color: var(--text-muted); }
+        .small { font-size: 0.74em; line-height: 1.35; }
+        .tiny { font-size: 0.62em; line-height: 1.3; }
+        .icon-xl { font-size: 2.1em; margin-bottom: 12px; }
+        .flow {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div class="centered" style="margin-top: 45px;">
+                    <div class="badge badge-orange">Cierre de la sesión</div>
+                    <h1 style="font-size: 2.15em;">Actualización y <span class="text-neon-blue">límites</span> de Swarm</h1>
+                    <h3 class="text-neon-orange" style="font-size: 1.1em;">Lección 08: qué hace bien Swarm y dónde exige cuidado</h3>
+                    <p class="muted" style="font-size: 0.78em; margin-top: 22px;">Rolling updates, escalamiento, servicios stateless y servicios stateful</p>
+                    <div style="margin-top: 42px; opacity: 0.65; font-size: 0.78em;">
+                        <i class="fa-solid fa-diagram-project"></i> Docker Swarm | Sistemas Operativos y Servicios de Red
+                    </div>
+                </div>
+                <aside class="notes">
+                    Presenta esta sección como el cierre conceptual de la primera charla: ya creamos servicios, vimos redes, stacks y resiliencia básica; ahora discutimos actualización y límites.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-arrows-rotate text-neon-blue"></i> ¿Qué significa actualizar un servicio?</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-blue">En modo standalone</div>
+                        <h4 class="text-neon-blue">Pensamos en contenedores</h4>
+                        <p class="small muted">Detener, recrear o reemplazar contenedores individuales. El operador controla explícitamente gran parte del ciclo de vida.</p>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-orange">En Swarm</div>
+                        <h4 class="text-neon-orange">Pensamos en servicios</h4>
+                        <p class="small muted">Se declara una nueva versión del servicio y el orquestador reemplaza gradualmente las tasks para acercarse al nuevo estado deseado.</p>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 25px;">
+                    <p style="margin: 0; font-size: 0.78em;"><strong class="text-neon-blue">Idea clave:</strong> actualizar no es “entrar al contenedor y cambiarlo”; es declarar una nueva configuración del servicio.</p>
+                </div>
+                <aside class="notes">
+                    Refuerza el cambio de mentalidad: los contenedores son reemplazables; el service es la abstracción que se administra.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-terminal text-neon-orange"></i> Comandos básicos de cierre</h2>
+                <div class="card">
+                    <pre><code class="language-bash"># Crear un servicio web publicado en el puerto 8088
+ docker service create \
+   --name web \
+   -p 8088:80 \
+   nginx:1.25
+
+# Escalar horizontalmente el servicio
+ docker service scale web=5
+
+# Actualizar la imagen del servicio
+ docker service update --image nginx:1.26 web
+
+# Forzar una redistribución de las tasks
+ docker service update --force web</code></pre>
+                </div>
+                <p class="tiny muted" style="margin-top: 18px;">Estos comandos permiten cerrar el ciclo: crear, escalar, actualizar y observar cómo Swarm reconcilia el estado del servicio.</p>
+                <aside class="notes">
+                    Puedes ejecutar estos comandos en vivo o dejarlos como recapitulación. Conviene que los estudiantes predigan qué cambiará antes de ejecutar cada comando.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-route text-neon-blue"></i> Rolling update: reemplazo gradual</h2>
+                <div class="flow">
+                    <div class="mini-card centered">
+                        <div class="badge badge-blue">Paso 1</div>
+                        <p class="small muted">Servicio actual con varias réplicas.</p>
+                    </div>
+                    <div class="text-neon-orange"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="mini-card centered">
+                        <div class="badge badge-orange">Paso 2</div>
+                        <p class="small muted">Swarm detiene algunas tasks y crea nuevas con la imagen actualizada.</p>
+                    </div>
+                    <div class="text-neon-orange"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="mini-card centered">
+                        <div class="badge badge-green">Paso 3</div>
+                        <p class="small muted">El servicio converge hacia la nueva versión.</p>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 25px;">
+                    <pre><code class="language-bash">docker service update \
+  --update-parallelism 1 \
+  --update-delay 10s \
+  --image nginx:1.26 \
+  web</code></pre>
+                </div>
+                <aside class="notes">
+                    Explica parallelism como cuántas tasks se actualizan simultáneamente y delay como pausa entre grupos de actualización.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-gauge-high text-neon-orange"></i> Escalar no siempre significa lo mismo</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-green">Stateless</div>
+                        <h4 class="text-green">Fácil de escalar</h4>
+                        <ul>
+                            <li>APIs REST</li>
+                            <li>Servidores web</li>
+                            <li>Workers sin estado local</li>
+                            <li>Servicios idempotentes</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-red">Stateful</div>
+                        <h4 class="text-red">Escalamiento delicado</h4>
+                        <ul>
+                            <li>Bases de datos</li>
+                            <li>Colas con persistencia</li>
+                            <li>Sistemas con archivos locales</li>
+                            <li>Servicios con sesiones no externalizadas</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Conecta con Drupal + PostgreSQL: Drupal puede escalarse con más facilidad; PostgreSQL requiere pensar en datos, volúmenes, replicación y ubicación.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-database text-neon-blue"></i> El límite más importante: los datos</h2>
+                <div class="card">
+                    <p style="font-size: 0.82em; line-height: 1.38; margin-top: 0;">
+                        Swarm puede mover o recrear tasks, pero los datos persistentes no se mueven mágicamente con la misma facilidad que un contenedor.
+                    </p>
+                    <div class="grid-3" style="margin-top: 25px;">
+                        <div class="mini-card centered">
+                            <i class="fa-solid fa-hard-drive icon-xl text-neon-blue"></i>
+                            <h4 style="font-size: 0.8em;">Volúmenes</h4>
+                            <p class="tiny muted">¿El volumen existe en el nodo donde cae la task?</p>
+                        </div>
+                        <div class="mini-card centered">
+                            <i class="fa-solid fa-location-dot icon-xl text-neon-orange"></i>
+                            <h4 style="font-size: 0.8em;">Ubicación</h4>
+                            <p class="tiny muted">¿Conviene fijar un servicio a ciertos nodos?</p>
+                        </div>
+                        <div class="mini-card centered">
+                            <i class="fa-solid fa-shield-halved icon-xl text-green"></i>
+                            <h4 style="font-size: 0.8em;">Respaldo</h4>
+                            <p class="tiny muted">¿Existe política de backup y recuperación?</p>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Este es un punto central para estudiantes de posgrado: separar orquestación de contenedores de gestión robusta de datos.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-triangle-exclamation text-neon-orange"></i> Qué hace bien Swarm y qué no resuelve solo</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-blue">Fortalezas</div>
+                        <ul>
+                            <li>Orquestación integrada con Docker.</li>
+                            <li>Modelo simple de services y replicas.</li>
+                            <li>Redes overlay y service discovery.</li>
+                            <li>Rolling updates con baja complejidad.</li>
+                            <li>Buena puerta de entrada a la orquestación.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-orange">Límites</div>
+                        <ul>
+                            <li>Ecosistema menor que Kubernetes.</li>
+                            <li>Menos extensibilidad del plano de control.</li>
+                            <li>Persistencia distribuida no trivial.</li>
+                            <li>Observabilidad y políticas avanzadas requieren integración externa.</li>
+                            <li>No elimina la necesidad de diseño operacional.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Evita presentar Swarm como “inferior” o “suficiente para todo”. Es una herramienta con un espacio de uso claro.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-map text-neon-blue"></i> Recorrido completo de la sesión</h2>
+                <div class="card">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; text-align: center;">
+                        <div class="mini-card"><div class="badge badge-blue">1</div><p class="tiny muted">De Compose a Swarm</p></div>
+                        <div class="mini-card"><div class="badge badge-blue">2</div><p class="tiny muted">Service, task y container</p></div>
+                        <div class="mini-card"><div class="badge badge-blue">3</div><p class="tiny muted">Manager, worker y cluster</p></div>
+                        <div class="mini-card"><div class="badge badge-blue">4</div><p class="tiny muted">Crear y escalar servicios</p></div>
+                        <div class="mini-card"><div class="badge badge-orange">5</div><p class="tiny muted">Falla y reconciliación</p></div>
+                        <div class="mini-card"><div class="badge badge-orange">6</div><p class="tiny muted">Routing mesh y overlay</p></div>
+                        <div class="mini-card"><div class="badge badge-orange">7</div><p class="tiny muted">Compose a Stack</p></div>
+                        <div class="mini-card"><div class="badge badge-green">8</div><p class="tiny muted">Actualización y límites</p></div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 20px;">
+                    <p style="margin: 0; font-size: 0.78em;"><strong class="text-neon-orange">Síntesis:</strong> Swarm permite declarar servicios distribuidos y mantenerlos cerca de un estado deseado, pero la arquitectura de datos, seguridad, monitoreo y operación sigue siendo responsabilidad del diseñador del sistema.</p>
+                </div>
+                <aside class="notes">
+                    Usa esta diapositiva para cerrar todo el bloque de Docker Swarm antes de pasar a preguntas tipo Kahoot.
+                </aside>
+            </section>
+
+            <section data-background-color="#0f172a">
+                <h2><i class="fa-solid fa-brain text-neon-orange"></i> Preguntas para discusión</h2>
+                <div class="card">
+                    <ul>
+                        <li>¿Por qué es más seguro actualizar un service que modificar manualmente un contenedor en ejecución?</li>
+                        <li>¿Qué tipo de aplicación se beneficia más rápidamente del escalamiento horizontal en Swarm?</li>
+                        <li>¿Por qué una base de datos requiere más cuidado que una API REST al desplegarse en un orquestador?</li>
+                        <li>¿Qué problemas no desaparecen aunque usemos Docker Swarm?</li>
+                    </ul>
+                </div>
+<!--
+                <div style="margin-top: 25px; font-size: 0.75em; color: var(--text-muted);">
+                    <p><i class="fa-solid fa-arrow-right text-neon-blue"></i> Estas preguntas pueden convertirse en evaluación rápida tipo Kahoot.</p>
+                </div>
+                <aside class="notes">
+                    Cierra pidiendo respuestas cortas. Estas preguntas preparan la transición a la actividad tipo Kahoot.
+                </aside>
+-->
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

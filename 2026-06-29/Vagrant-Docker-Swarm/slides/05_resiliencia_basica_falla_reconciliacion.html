@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm 05: Resiliencia básica - falla de contenedor y reconciliación</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f43f5e;
+            --accent-purple: #a78bfa;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal { font-family: 'Urbanist', sans-serif; background-color: var(--bg-main); color: #f8fafc; }
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 { font-family: 'Urbanist', sans-serif; text-transform: none; font-weight: 800; }
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-purple { color: var(--accent-purple); }
+        .muted { color: var(--text-muted); }
+        .center { text-align: center; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: stretch; }
+        .card { background: var(--slide-bg); padding: 24px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
+        .card-blue { border-color: rgba(56, 189, 248, 0.45); }
+        .card-orange { border-color: rgba(251, 146, 60, 0.45); }
+        .card-green { border-color: rgba(34, 197, 94, 0.45); }
+        .card-red { border-color: rgba(244, 63, 94, 0.45); }
+        .card-purple { border-color: rgba(167, 139, 250, 0.45); }
+        .badge { display: inline-block; padding: 5px 15px; border-radius: 50px; font-size: 0.55em; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.04em; }
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.18); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-red { background: rgba(244, 63, 94, 0.18); color: var(--accent-red); border: 1px solid var(--accent-red); }
+        .badge-purple { background: rgba(167, 139, 250, 0.18); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+        pre { background: var(--code-bg) !important; border-radius: 10px !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; }
+        code { font-family: 'JetBrains Mono', monospace !important; }
+        .reveal .slides section { text-align: left; }
+        .reveal .slides section h2 { text-align: center; margin-bottom: 34px; }
+        .reveal p { line-height: 1.35; }
+        .reveal ul { list-style-type: none; padding-left: 0; }
+        .reveal ul li { margin-bottom: 12px; position: relative; padding-left: 30px; font-size: 0.78em; line-height: 1.35; }
+        .reveal ul li::before { content: "\f0e7"; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; left: 0; color: var(--accent-primary); }
+        .small { font-size: 0.72em; }
+        .tiny { font-size: 0.58em; }
+        .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 14px; align-items: center; }
+        .arrow { color: var(--accent-secondary); font-size: 1.2em; text-align: center; }
+        .terminal-title { font-family: 'JetBrains Mono', monospace; color: var(--accent-green); font-size: 0.55em; margin-bottom: 8px; }
+        .pill { display: inline-block; border-radius: 999px; padding: 6px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); font-size: 0.62em; margin: 4px; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div class="center" style="margin-top: 40px;">
+                    <div class="badge badge-red">Docker Swarm · Sección 05</div>
+                    <h1 style="font-size: 2.25em;">Resiliencia básica:<br><span class="text-neon-blue">falla de contenedor</span> y <span class="text-neon-orange">reconciliación</span></h1>
+                    <p class="muted" style="font-size: 0.8em; margin-top: 20px;">Del contenedor individual al estado deseado del servicio</p>
+                    <div style="margin-top: 42px; opacity: 0.65; font-size: 0.78em;">
+                        <i class="fa-solid fa-shield-heart"></i> Laboratorio guiado · 10 minutos
+                    </div>
+                </div>
+                <aside class="notes">Presenta esta sección como el momento donde Swarm deja de ser solo una forma distinta de ejecutar Docker y se revela como orquestador.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-triangle-exclamation text-neon-orange"></i> ¿Qué queremos comprobar?</h2>
+                <div class="grid-2">
+                    <div class="card card-red">
+                        <div class="badge badge-red">Falla provocada</div>
+                        <h4>Eliminar una réplica</h4>
+                        <p class="small muted">Vamos a borrar manualmente uno de los contenedores que implementan un servicio de Swarm.</p>
+                    </div>
+                    <div class="card card-green">
+                        <div class="badge badge-green">Respuesta del orquestador</div>
+                        <h4>Observar la recuperación</h4>
+                        <p class="small muted">Swarm detecta que el estado real ya no coincide con el estado deseado y crea una nueva task.</p>
+                    </div>
+                </div>
+                <div class="card card-blue" style="margin-top: 25px; text-align: center;">
+                    <p style="font-size: 0.88em; margin: 0;"><strong class="text-neon-blue">Idea central:</strong> Swarm no protege un contenedor específico; mantiene el número de réplicas declarado para el servicio.</p>
+                </div>
+                <aside class="notes">Diferencia entre cuidar una instancia concreta y sostener una especificación declarativa.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-scale-balanced text-neon-blue"></i> Estado deseado vs. estado real</h2>
+                <div class="flow">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">Declaración</div>
+                        <h4>Service</h4>
+                        <p class="small muted">web = 3 réplicas</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">Ejecución</div>
+                        <h4>Tasks</h4>
+                        <p class="small muted">web.1, web.2, web.3</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">Materialización</div>
+                        <h4>Containers</h4>
+                        <p class="small muted">Procesos reales en nodos</p>
+                    </div>
+                </div>
+                <div class="card card-purple" style="margin-top: 24px;">
+                    <p style="margin: 0; font-size: 0.8em;"><strong class="text-purple">Reconciliación:</strong> proceso mediante el cual el orquestador compara lo que debería existir con lo que realmente existe y ejecuta acciones correctivas.</p>
+                </div>
+                <aside class="notes">Explica que esta es una idea común en orquestadores modernos, incluidos Kubernetes y otros sistemas declarativos.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-list-check text-neon-blue"></i> Punto de partida del laboratorio</h2>
+                <div class="card">
+                    <div class="terminal-title"># Servicio esperado desde la sección anterior</div>
+                    <pre><code class="language-bash">docker service ls
+
+docker service ps web
+
+docker container ls</code></pre>
+                </div>
+                <div class="grid-3" style="margin-top: 20px;">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">1</div>
+                        <p class="small muted">Identificar el servicio</p>
+                    </div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">2</div>
+                        <p class="small muted">Ver sus tasks</p>
+                    </div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">3</div>
+                        <p class="small muted">Ubicar los contenedores reales</p>
+                    </div>
+                </div>
+                <aside class="notes">Asegúrate de que todos tengan un servicio con al menos tres réplicas antes de provocar la falla.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-magnifying-glass text-neon-orange"></i> Identificar el contenedor asociado</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="terminal-title"># Ver tasks del servicio</div>
+                        <pre><code class="language-bash">docker service ps web</code></pre>
+                    </div>
+                    <div class="card">
+                        <div class="terminal-title"># Ver contenedores locales</div>
+                        <pre><code class="language-bash">docker container ls</code></pre>
+                    </div>
+                </div>
+                <div class="card card-blue" style="margin-top: 24px;">
+                    <p class="small" style="margin: 0;">Los nombres suelen tener una forma similar a:</p>
+                    <pre style="margin-top: 12px !important;"><code class="language-text">web.1.xxxxxxxxxxxx
+web.2.yyyyyyyyyyyy
+web.3.zzzzzzzzzzzz</code></pre>
+                </div>
+                <aside class="notes">Aclara que en un clúster multinodo cada estudiante podría no ver todos los contenedores con docker container ls si está conectado a un solo nodo.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-skull-crossbones text-red"></i> Provocar la falla</h2>
+                <div class="card card-red">
+                    <div class="terminal-title"># Eliminar una réplica manualmente</div>
+                    <pre><code class="language-bash">docker container rm -f &lt;container_id_o_nombre&gt;</code></pre>
+                </div>
+                <div class="card card-orange" style="margin-top: 22px;">
+                    <p style="font-size: 0.82em; margin: 0;"><strong class="text-neon-orange">Pregunta inmediata:</strong> ¿acabamos de reducir el servicio de 3 a 2 réplicas, o solo destruimos un contenedor que Swarm considera reemplazable?</p>
+                </div>
+                <div class="center" style="margin-top: 22px;">
+                    <span class="pill"><i class="fa-solid fa-container-storage"></i> contenedor eliminado</span>
+                    <span class="pill"><i class="fa-solid fa-clock"></i> breve inconsistencia</span>
+                    <span class="pill"><i class="fa-solid fa-rotate"></i> reconciliación</span>
+                </div>
+                <aside class="notes">Es importante no usar docker service scale aquí; queremos una falla accidental, no un cambio declarativo.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-heart-pulse text-green"></i> Observar la reconciliación</h2>
+                <div class="card">
+                    <div class="terminal-title"># Verificar estado del servicio</div>
+                    <pre><code class="language-bash">docker service ls
+
+docker service ps web
+
+docker container ls</code></pre>
+                </div>
+                <div class="grid-2" style="margin-top: 22px;">
+                    <div class="card card-red">
+                        <div class="badge badge-red">Lo que veremos</div>
+                        <p class="small muted">Una task queda marcada como fallida, apagada o removida.</p>
+                    </div>
+                    <div class="card card-green">
+                        <div class="badge badge-green">Lo importante</div>
+                        <p class="small muted">Swarm crea otra task para volver al número de réplicas esperado.</p>
+                    </div>
+                </div>
+                <aside class="notes">Enfatiza que service ps conserva historia de tareas: no solo muestra las vivas, también permite interpretar eventos recientes.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-code-compare text-neon-blue"></i> Falla vs. cambio intencional</h2>
+                <div class="grid-2">
+                    <div class="card card-red">
+                        <div class="badge badge-red">Falla</div>
+                        <pre><code class="language-bash">docker container rm -f &lt;id&gt;</code></pre>
+                        <p class="small muted">El estado deseado no cambia. Swarm reemplaza la réplica perdida.</p>
+                    </div>
+                    <div class="card card-green">
+                        <div class="badge badge-green">Cambio declarativo</div>
+                        <pre><code class="language-bash">docker service scale web=2</code></pre>
+                        <p class="small muted">El estado deseado sí cambia. Swarm reduce el servicio a dos réplicas.</p>
+                    </div>
+                </div>
+                <div class="card card-purple" style="margin-top: 24px; text-align: center;">
+                    <p style="font-size: 0.82em; margin: 0;">En Swarm, el camino correcto para modificar una aplicación es cambiar el <strong class="text-purple">service</strong>, no manipular contenedores individuales.</p>
+                </div>
+                <aside class="notes">Esta diapositiva ayuda a que no confundan intervención manual con operación declarativa.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-diagram-project text-neon-orange"></i> Lectura operativa del evento</h2>
+                <div class="grid-4">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">1</div>
+                        <p class="small muted">El usuario declara 3 réplicas.</p>
+                    </div>
+                    <div class="card card-red center">
+                        <div class="badge badge-red">2</div>
+                        <p class="small muted">Una réplica desaparece.</p>
+                    </div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">3</div>
+                        <p class="small muted">Swarm detecta divergencia.</p>
+                    </div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">4</div>
+                        <p class="small muted">Se crea una nueva task.</p>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 24px;">
+                    <p class="small" style="margin: 0;"><strong class="text-neon-blue">Traducción al lenguaje de sistemas operativos:</strong> hay supervisión, planificación y reposición de unidades de ejecución para sostener una política declarada.</p>
+                </div>
+                <aside class="notes">Conecta con conceptos del curso: procesos, demonios supervisores, scheduling y control de estado.</aside>
+            </section>
+
+            <section data-background-color="#0f172a">
+                <h2><i class="fa-solid fa-comments text-neon-orange"></i> Preguntas para discusión</h2>
+                <div class="card" style="max-width: 980px; margin: 0 auto;">
+                    <ul>
+                        <li>¿Por qué Swarm reemplaza el contenedor eliminado en lugar de aceptar que el servicio quedó con menos réplicas?</li>
+                        <li>¿Cuál es la diferencia conceptual entre matar un contenedor y ejecutar <code>docker service scale web=2</code>?</li>
+                        <li>¿Qué información entrega <code>docker service ps</code> que no se observa claramente con <code>docker container ls</code>?</li>
+                        <li>¿Qué ocurriría si la réplica se cae repetidamente por un error de la imagen o de la aplicación?</li>
+                    </ul>
+                </div>
+                <div class="center" style="margin-top: 24px; font-size: 0.75em; color: var(--text-muted);">
+<!--
+                    <i class="fa-solid fa-arrow-right"></i> Estas preguntas se pueden convertir en Kahoot al final del bloque.
+-->
+                </div>
+                <aside class="notes">Usa estas preguntas para verificar si entendieron estado deseado y reconciliación.</aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

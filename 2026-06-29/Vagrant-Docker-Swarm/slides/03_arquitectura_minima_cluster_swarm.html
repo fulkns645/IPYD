@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm 03: Arquitectura mínima del clúster</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f43f5e;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+            font-family: 'Urbanist', sans-serif;
+            text-transform: none;
+            font-weight: 800;
+        }
+
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .muted { color: var(--text-muted); }
+        .center { text-align: center; }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--slide-bg);
+            padding: 24px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+
+        .card-blue { border-color: rgba(56, 189, 248, 0.45); }
+        .card-orange { border-color: rgba(251, 146, 60, 0.45); }
+        .card-green { border-color: rgba(34, 197, 94, 0.45); }
+        .card-red { border-color: rgba(244, 63, 94, 0.45); }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.55em;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.18); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-red { background: rgba(244, 63, 94, 0.18); color: var(--accent-red); border: 1px solid var(--accent-red); }
+
+        pre {
+            background: var(--code-bg) !important;
+            border-radius: 10px !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+
+        .reveal .slides section {
+            text-align: left;
+        }
+
+        .reveal .slides section h2 {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .reveal ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .reveal ul li {
+            margin-bottom: 13px;
+            position: relative;
+            padding-left: 30px;
+            line-height: 1.22;
+        }
+
+        .reveal ul li::before {
+            content: "\f0e8";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+        }
+
+        .small { font-size: 0.72em; line-height: 1.35; }
+        .xsmall { font-size: 0.62em; line-height: 1.25; }
+
+        .diagram-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .arrow {
+            color: var(--accent-secondary);
+            font-size: 1.3em;
+            text-align: center;
+        }
+
+        .node {
+            padding: 18px;
+            border-radius: 14px;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.82);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .mini-terminal {
+            font-family: 'JetBrains Mono', monospace;
+            background: #020617;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 12px;
+            padding: 18px;
+            color: #d1d5db;
+            font-size: 0.72em;
+            line-height: 1.35;
+        }
+
+        .prompt { color: var(--accent-green); }
+        .cmd { color: var(--accent-primary); }
+        .comment { color: var(--text-muted); }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div style="text-align: center; margin-top: 35px;">
+                    <div class="badge badge-blue">Docker Swarm · Parte 03</div>
+                    <h1 style="font-size: 2.15em;">Arquitectura mínima del <span class="text-neon-blue">clúster</span></h1>
+                    <h3 class="text-neon-orange" style="font-size: 1.05em;">Manager, Workers, plano de control y consenso básico</h3>
+                    <p style="font-size: 0.78em; opacity: 0.72; margin-top: 20px;">Sistemas Operativos y Servicios de Red</p>
+                    <div style="margin-top: 38px; opacity: 0.66; font-size: 0.75em;">
+                        <i class="fa-solid fa-network-wired"></i> Duración sugerida: 10 minutos | Bloque teórico-práctico
+                    </div>
+                </div>
+                <aside class="notes">
+                    Esta sección conecta el modelo conceptual anterior con la arquitectura real de ejecución: nodos manager, workers, plano de control y plano de ejecución.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-bullseye text-neon-blue"></i> Objetivo de esta parte</h2>
+                <div class="card" style="max-width: 940px; margin: 0 auto;">
+                    <p style="font-size: 0.9em; line-height: 1.35; margin-top: 0;">
+                        Comprender la arquitectura mínima que permite que Docker Swarm funcione como un <strong>orquestador distribuido</strong>.
+                    </p>
+                    <div class="grid-3 small" style="margin-top: 20px;">
+                        <div class="card card-blue" style="padding: 18px;">
+                            <div class="badge badge-blue">1</div>
+                            <p>Identificar el rol de los nodos <strong>manager</strong> y <strong>worker</strong>.</p>
+                        </div>
+                        <div class="card card-orange" style="padding: 18px;">
+                            <div class="badge badge-orange">2</div>
+                            <p>Distinguir entre <strong>plano de control</strong> y <strong>plano de ejecución</strong>.</p>
+                        </div>
+                        <div class="card card-green" style="padding: 18px;">
+                            <div class="badge badge-green">3</div>
+                            <p>Reconocer por qué Swarm necesita <strong>consenso</strong> entre managers.</p>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    El objetivo no es explicar Raft formalmente, sino dar una intuición suficiente para entender por qué varios managers requieren acuerdo.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-layer-group text-neon-orange"></i> Dos planos: control y ejecución</h2>
+                <div class="grid-2">
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Plano de control</div>
+                        <h4 class="text-neon-blue" style="font-size: 0.95em;">Decide qué debe pasar</h4>
+                        <ul class="small">
+                            <li>Mantiene el estado del clúster.</li>
+                            <li>Recibe órdenes del usuario.</li>
+                            <li>Programa tareas en nodos disponibles.</li>
+                            <li>Reconcilia estado real vs. estado deseado.</li>
+                        </ul>
+                    </div>
+                    <div class="card card-orange">
+                        <div class="badge badge-orange">Plano de ejecución</div>
+                        <h4 class="text-neon-orange" style="font-size: 0.95em;">Ejecuta lo que fue asignado</h4>
+                        <ul class="small">
+                            <li>Descarga imágenes.</li>
+                            <li>Crea y ejecuta contenedores.</li>
+                            <li>Reporta el estado de las tareas.</li>
+                            <li>Corre la carga real de la aplicación.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Esta separación es clásica en sistemas distribuidos y en sistemas operativos: una parte decide, otra ejecuta.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-sitemap text-neon-blue"></i> Arquitectura mínima</h2>
+                <div class="card" style="max-width: 980px; margin: 0 auto;">
+                    <div class="diagram-row small">
+                        <div class="node" style="border-color: rgba(56,189,248,0.5);">
+                            <i class="fa-solid fa-crown text-neon-blue" style="font-size: 1.5em;"></i>
+                            <h4 style="margin: 12px 0 6px 0;">Manager</h4>
+                            <p class="muted">Coordina el clúster y mantiene el estado deseado.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="node" style="border-color: rgba(251,146,60,0.5);">
+                            <i class="fa-solid fa-boxes-stacked text-neon-orange" style="font-size: 1.5em;"></i>
+                            <h4 style="margin: 12px 0 6px 0;">Worker 01</h4>
+                            <p class="muted">Ejecuta tasks asignadas como contenedores.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="node" style="border-color: rgba(251,146,60,0.5);">
+                            <i class="fa-solid fa-boxes-stacked text-neon-orange" style="font-size: 1.5em;"></i>
+                            <h4 style="margin: 12px 0 6px 0;">Worker 02</h4>
+                            <p class="muted">Aumenta capacidad y tolerancia a fallos.</p>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 22px; background: rgba(2,6,23,0.55);">
+                        <p style="margin: 0; font-size: 0.78em;"><strong class="text-neon-blue">Idea clave:</strong> un Swarm puede iniciar con un solo manager, pero el valor de la orquestación aparece cuando hay múltiples nodos donde ubicar tareas.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Este diagrama representa un clúster didáctico mínimo: un manager y dos workers. En producción se suelen tener varios managers para alta disponibilidad.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-terminal text-neon-orange"></i> Inicialización y unión de nodos</h2>
+                <div class="grid-2">
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Manager</div>
+                        <pre><code class="language-bash"># Inicializa el Swarm
+$ docker swarm init \
+  --advertise-addr 192.168.56.10
+
+# Entrega el token para unir workers
+$ docker swarm join-token worker</code></pre>
+                    </div>
+                    <div class="card card-orange">
+                        <div class="badge badge-orange">Worker</div>
+                        <pre><code class="language-bash"># El worker se une al clúster
+$ docker swarm join \
+  --token SWMTKN-1-... \
+  192.168.56.10:2377
+
+# Verificar nodos desde el manager
+$ docker node ls</code></pre>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 20px;">
+                    <p class="small" style="margin:0;"><strong class="text-neon-orange">Advertencia didáctica:</strong> el parámetro <code>--advertise-addr</code> importa cuando el equipo tiene varias interfaces de red, como suele ocurrir en Vagrant, VirtualBox, WSL o redes de laboratorio.</p>
+                </div>
+                <aside class="notes">
+                    En laboratorios con máquinas virtuales, --advertise-addr evita que Docker escoja una interfaz incorrecta. Esto reduce errores de conectividad entre nodos.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-crown text-neon-blue"></i> ¿Qué hace un Manager?</h2>
+                <div class="grid-2">
+                    <div class="card card-blue">
+                        <h4 class="text-neon-blue" style="font-size: 0.95em;">Responsabilidades</h4>
+                        <ul class="small">
+                            <li>Recibe comandos del cliente Docker.</li>
+                            <li>Crea o actualiza objetos: services, networks, secrets, configs.</li>
+                            <li>Programa tasks en nodos disponibles.</li>
+                            <li>Observa fallos y activa reconciliación.</li>
+                        </ul>
+                    </div>
+                    <div class="card card-green">
+                        <h4 class="text-green" style="font-size: 0.95em;">Desde sistemas operativos</h4>
+                        <ul class="small">
+                            <li>Funciona como un scheduler distribuido.</li>
+                            <li>Administra recursos del clúster.</li>
+                            <li>Mantiene metadata y estado global.</li>
+                            <li>Coordina la ejecución de procesos distribuidos.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Relaciona el rol del manager con conceptos vistos en sistemas operativos: planificación, estado, procesos, recursos y recuperación.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-microchip text-neon-orange"></i> ¿Qué hace un Worker?</h2>
+                <div class="card" style="max-width: 980px; margin: 0 auto;">
+                    <div class="grid-3 small">
+                        <div class="card card-orange" style="padding: 18px;">
+                            <div class="badge badge-orange">Ejecuta</div>
+                            <p>Corre contenedores asociados a las tasks asignadas.</p>
+                        </div>
+                        <div class="card card-blue" style="padding: 18px;">
+                            <div class="badge badge-blue">Reporta</div>
+                            <p>Informa al manager el estado de las tasks y contenedores.</p>
+                        </div>
+                        <div class="card card-green" style="padding: 18px;">
+                            <div class="badge badge-green">Participa</div>
+                            <p>Se integra a redes overlay y ejecuta la carga real del servicio.</p>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 20px; background: rgba(2,6,23,0.55);">
+                        <p style="margin: 0; font-size: 0.78em;"><strong class="text-neon-orange">Punto importante:</strong> un manager también puede ejecutar tareas como worker, pero en ambientes productivos puede reservarse el manager solo para control.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    En una práctica pequeña se puede permitir que el manager ejecute contenedores. En producción, esto puede separarse para proteger el plano de control.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-scale-balanced text-neon-blue"></i> ¿Por qué aparece Raft?</h2>
+                <div class="card" style="max-width: 960px; margin: 0 auto;">
+                    <p style="font-size: 0.82em; line-height: 1.35; margin-top: 0;">
+                        Si hay varios managers, todos necesitan ponerse de acuerdo sobre una pregunta crítica:
+                    </p>
+                    <div class="card card-blue" style="text-align: center; margin: 18px 0;">
+                        <h3 style="font-size: 1.15em; margin: 0;">¿Cuál es el estado válido del clúster?</h3>
+                    </div>
+                    <div class="grid-3 small">
+                        <div class="card" style="padding: 18px;">
+                            <div class="badge badge-blue">Estado</div>
+                            <p>Servicios, redes, nodos, tareas, réplicas y configuración.</p>
+                        </div>
+                        <div class="card" style="padding: 18px;">
+                            <div class="badge badge-orange">Consenso</div>
+                            <p>Los managers acuerdan cambios antes de aceptarlos como válidos.</p>
+                        </div>
+                        <div class="card" style="padding: 18px;">
+                            <div class="badge badge-green">Líder</div>
+                            <p>Un manager actúa como líder para coordinar las decisiones.</p>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    No entrar en el algoritmo completo. La idea central es que Swarm usa consenso para evitar que los managers tengan versiones contradictorias del estado del clúster.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-scale-balanced text-neon-blue"></i> ¿Por qué aparece Raft? (2)</h2>
+
+	    <img src="figures/03_arquitectura_minima_cluster_swarm-01-Raft.png" alt="Comparación entre escalado vertical y escalado horizontal en EC2" style="width: 80%; max-width: 1100px; display: block; margin: 20px auto;" />
+
+                <aside class="notes">
+                    No entrar en el algoritmo completo. La idea central es que Swarm usa consenso para evitar que los managers tengan versiones contradictorias del estado del clúster.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-users-gear text-neon-orange"></i> Quórum: intuición práctica</h2>
+                <div class="grid-3">
+                    <div class="card card-red">
+                        <div class="badge badge-red">1 manager</div>
+                        <h4 style="font-size: 0.9em;">Simple</h4>
+                        <p class="small muted">Fácil para prácticas, pero sin alta disponibilidad del plano de control.</p>
+                    </div>
+                    <div class="card card-green">
+                        <div class="badge badge-green">3 managers</div>
+                        <h4 style="font-size: 0.9em;">Recomendable</h4>
+                        <p class="small muted">Puede tolerar la pérdida de 1 manager y mantener mayoría.</p>
+                    </div>
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">5 managers</div>
+                        <h4 style="font-size: 0.9em;">Mayor tolerancia</h4>
+                        <p class="small muted">Puede tolerar la pérdida de 2 managers, con más costo de coordinación.</p>
+                    </div>
+                </div>
+                <div class="card" style="margin-top: 22px;">
+                    <p class="small" style="margin:0;"><strong class="text-neon-orange">Regla intuitiva:</strong> para tomar decisiones, los managers necesitan mayoría. Por eso se prefieren números impares de managers.</p>
+                </div>
+                <aside class="notes">
+                    Puedes presentar la fórmula de tolerancia como floor((N-1)/2), pero enfatizar más la idea de mayoría que la matemática.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-heart-pulse text-neon-blue"></i> Estados de un nodo</h2>
+                <div class="card" style="max-width: 980px; margin: 0 auto;">
+                    <div class="mini-terminal">
+<span class="prompt">$</span> <span class="cmd">docker node ls</span><br>
+ID        HOSTNAME    STATUS    AVAILABILITY    MANAGER STATUS<br>
+ab12 *    manager     Ready     Active          Leader<br>
+cd34      worker-01   Ready     Active          <br>
+ef56      worker-02   Ready     Active          <br>
+                    </div>
+                    <div class="grid-3 small" style="margin-top: 20px;">
+                        <div class="card" style="padding: 18px;">
+                            <div class="badge badge-blue">Status</div>
+                            <p><code>Ready</code> indica que el nodo está disponible para el clúster.</p>
+                        </div>
+                        <div class="card" style="padding: 18px;">
+                            <div class="badge badge-orange">Availability</div>
+                            <p><code>Active</code>, <code>Pause</code> o <code>Drain</code> controlan si recibe nuevas tareas.</p>
+                        </div>
+                        <div class="card" style="padding: 18px;">
+                            <div class="badge badge-green">Manager Status</div>
+                            <p><code>Leader</code> o <code>Reachable</code> aplica a managers.</p>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Esta diapositiva prepara a los estudiantes para interpretar la salida real durante la práctica. No todos los nodos tendrán manager status.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-triangle-exclamation text-neon-orange"></i> Fallos: ¿qué se puede recuperar?</h2>
+                <div class="grid-2">
+                    <div class="card card-green">
+                        <div class="badge badge-green">Falla de task/contenedor</div>
+                        <p class="small">Swarm puede crear una nueva task para restaurar el número de réplicas del servicio.</p>
+                        <p class="xsmall muted">Ejemplo: eliminar un contenedor manualmente.</p>
+                    </div>
+                    <div class="card card-orange">
+                        <div class="badge badge-orange">Falla de worker</div>
+                        <p class="small">Las tasks pueden ser reubicadas en otros nodos disponibles, si hay capacidad.</p>
+                        <p class="xsmall muted">Ejemplo: apagar un nodo worker.</p>
+                    </div>
+                    <div class="card card-red">
+                        <div class="badge badge-red">Falla de manager único</div>
+                        <p class="small">El clúster puede seguir ejecutando contenedores, pero el plano de control queda afectado.</p>
+                        <p class="xsmall muted">Ejemplo: no se pueden tomar nuevas decisiones de orquestación.</p>
+                    </div>
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Falla sin quórum</div>
+                        <p class="small">Los managers restantes no pueden acordar cambios confiables en el estado del clúster.</p>
+                        <p class="xsmall muted">Ejemplo: pérdida de mayoría de managers.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Diferenciar entre plano de datos y plano de control: los contenedores pueden seguir corriendo, aunque el control del clúster esté limitado.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-check-circle text-neon-blue"></i> Ideas clave</h2>
+                <div class="card" style="max-width: 920px; margin: 0 auto; font-size: 0.78em;">
+                    <ul>
+                        <li>Un clúster Swarm separa decisiones de orquestación y ejecución de contenedores.</li>
+                        <li>Los <strong>managers</strong> mantienen el estado del clúster y asignan tareas.</li>
+                        <li>Los <strong>workers</strong> ejecutan las tasks como contenedores reales.</li>
+                        <li>Con múltiples managers, Swarm necesita consenso para evitar estados contradictorios.</li>
+                        <li>La alta disponibilidad del plano de control requiere quórum; por eso se recomiendan números impares de managers.</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Cerrar reforzando que el valor del clúster está en mantener servicios distribuidos y no simplemente en tener varios Docker hosts.
+                </aside>
+            </section>
+
+            <section data-background-color="#0f172a">
+                <h2><i class="fa-solid fa-brain text-neon-orange"></i> Preguntas para discusión</h2>
+                <div class="card" style="max-width: 940px; margin: 0 auto;">
+                    <ul class="small">
+                        <li>¿Por qué no basta con tener varios equipos corriendo Docker de forma independiente?</li>
+                        <li>¿Qué se pierde si el único manager del clúster falla?</li>
+                        <li>¿Por qué un número impar de managers suele ser mejor que uno par?</li>
+                        <li>¿En una práctica académica conviene permitir que el manager también ejecute contenedores?</li>
+                        <li>¿Qué diferencia hay entre que un contenedor falle y que falle el plano de control?</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Estas preguntas pueden convertirse en preguntas tipo Kahoot. Algunas son conceptuales y otras permiten discusión según el contexto del laboratorio.
+                </aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

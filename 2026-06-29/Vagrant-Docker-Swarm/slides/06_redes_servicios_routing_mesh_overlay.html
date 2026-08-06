@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm 06: Redes de servicios - routing mesh, puertos y overlay networks</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f43f5e;
+            --accent-purple: #a78bfa;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal { font-family: 'Urbanist', sans-serif; background-color: var(--bg-main); color: #f8fafc; }
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 { font-family: 'Urbanist', sans-serif; text-transform: none; font-weight: 800; }
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-purple { color: var(--accent-purple); }
+        .muted { color: var(--text-muted); }
+        .center { text-align: center; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: stretch; }
+        .card { background: var(--slide-bg); padding: 24px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
+        .card-blue { border-color: rgba(56, 189, 248, 0.45); }
+        .card-orange { border-color: rgba(251, 146, 60, 0.45); }
+        .card-green { border-color: rgba(34, 197, 94, 0.45); }
+        .card-red { border-color: rgba(244, 63, 94, 0.45); }
+        .card-purple { border-color: rgba(167, 139, 250, 0.45); }
+        .badge { display: inline-block; padding: 5px 15px; border-radius: 50px; font-size: 0.55em; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 0.04em; }
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.18); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-red { background: rgba(244, 63, 94, 0.18); color: var(--accent-red); border: 1px solid var(--accent-red); }
+        .badge-purple { background: rgba(167, 139, 250, 0.18); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+        pre { background: var(--code-bg) !important; border-radius: 10px !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; }
+        code { font-family: 'JetBrains Mono', monospace !important; }
+        .reveal .slides section { text-align: left; }
+        .reveal .slides section h2 { text-align: center; margin-bottom: 34px; }
+        .reveal p { line-height: 1.35; }
+        .reveal ul { list-style-type: none; padding-left: 0; }
+        .reveal ul li { margin-bottom: 12px; position: relative; padding-left: 30px; font-size: 0.78em; line-height: 1.35; }
+        .reveal ul li::before { content: "\f0ac"; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; left: 0; color: var(--accent-primary); }
+        .small { font-size: 0.72em; }
+        .tiny { font-size: 0.58em; }
+        .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 14px; align-items: center; }
+        .flow-4 { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; gap: 12px; align-items: center; }
+        .arrow { color: var(--accent-secondary); font-size: 1.2em; text-align: center; }
+        .terminal-title { font-family: 'JetBrains Mono', monospace; color: var(--accent-green); font-size: 0.55em; margin-bottom: 8px; }
+        .pill { display: inline-block; border-radius: 999px; padding: 6px 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); font-size: 0.62em; margin: 4px; }
+        .node { min-height: 110px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .netline { height: 4px; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 4px; margin: 14px 0; opacity: 0.9; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div class="center" style="margin-top: 40px;">
+                    <div class="badge badge-blue">Docker Swarm · Sección 06</div>
+                    <h1 style="font-size: 2.2em;">Redes de servicios:<br><span class="text-neon-blue">routing mesh</span>, <span class="text-neon-orange">puertos</span> y <span class="text-purple">overlay networks</span></h1>
+                    <p class="muted" style="font-size: 0.8em; margin-top: 20px;">Cómo se comunican los servicios dentro y fuera del clúster</p>
+                    <div style="margin-top: 42px; opacity: 0.65; font-size: 0.78em;">
+                        <i class="fa-solid fa-network-wired"></i> Teórico-práctico · 15 minutos
+                    </div>
+                </div>
+                <aside class="notes">Presenta esta sección como el puente entre servicios distribuidos y servicios de red. Ya no basta saber dónde corre un contenedor; importa cómo se alcanza.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-circle-question text-neon-orange"></i> Pregunta guía</h2>
+                <div class="card card-orange" style="text-align: center;">
+                    <p style="font-size: 1em; margin: 0;">Si una réplica de <code>web</code> está corriendo en <strong>worker-02</strong>, ¿por qué puedo acceder al servicio desde el IP del <strong>manager</strong>?</p>
+                </div>
+                <div class="grid-3" style="margin-top: 25px;">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">Entrada</div>
+                        <h4>Puerto publicado</h4>
+                        <p class="small muted">Hace visible un servicio hacia fuera del clúster.</p>
+                    </div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">Distribución</div>
+                        <h4>Routing mesh</h4>
+                        <p class="small muted">Permite recibir tráfico en cualquier nodo del Swarm.</p>
+                    </div>
+                    <div class="card card-purple center">
+                        <div class="badge badge-purple">Comunicación interna</div>
+                        <h4>Overlay network</h4>
+                        <p class="small muted">Conecta servicios que pueden estar en distintos hosts.</p>
+                    </div>
+                </div>
+                <aside class="notes">La pregunta inicial ayuda a romper la asociación ingenua entre puerto publicado y nodo donde vive físicamente el contenedor.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-door-open text-neon-blue"></i> Publicar un puerto</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="terminal-title"># Servicio HTTP publicado</div>
+                        <pre><code class="language-bash">docker service create \
+  --name web \
+  --replicas 3 \
+  -p 8080:80 \
+  nginx</code></pre>
+                    </div>
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Lectura</div>
+                        <p class="small muted"><code>-p 8080:80</code> significa:</p>
+                        <ul>
+                            <li><code>8080</code>: puerto visible en el clúster.</li>
+                            <li><code>80</code>: puerto interno del contenedor.</li>
+                            <li>El cliente no necesita saber en qué nodo corre la task.</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card card-orange" style="margin-top: 22px; text-align:center;">
+                    <p style="font-size: 0.8em; margin: 0;"><strong class="text-neon-orange">Idea clave:</strong> publicar un puerto expone un <em>servicio</em>, no un contenedor particular.</p>
+                </div>
+                <aside class="notes">Conecta este punto con la diferencia entre container port y published port vista en Docker básico, pero ahora aplicada a un servicio.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-route text-green"></i> Routing mesh</h2>
+                <div class="grid-3">
+                    <div class="card card-blue node">
+                        <div class="badge badge-blue">manager</div>
+                        <i class="fa-solid fa-server text-neon-blue" style="font-size: 1.6em;"></i>
+                        <p class="tiny muted">recibe tráfico :8080</p>
+                    </div>
+                    <div class="card card-orange node">
+                        <div class="badge badge-orange">worker-01</div>
+                        <i class="fa-solid fa-server text-neon-orange" style="font-size: 1.6em;"></i>
+                        <p class="tiny muted">recibe tráfico :8080</p>
+                    </div>
+                    <div class="card card-green node">
+                        <div class="badge badge-green">worker-02</div>
+                        <i class="fa-solid fa-cube text-green" style="font-size: 1.6em;"></i>
+                        <p class="tiny muted">task real de web</p>
+                    </div>
+                </div>
+                <div class="netline"></div>
+                <div class="card card-green">
+                    <p style="font-size: 0.8em; margin: 0;"><strong class="text-green">Routing mesh:</strong> cuando un servicio publica un puerto en modo ingress, cualquier nodo del Swarm puede recibir la conexión y redirigirla hacia una task disponible del servicio.</p>
+                </div>
+                <aside class="notes">Aclara que esto es útil para simplificar el acceso externo: el usuario puede llegar por cualquier nodo, aunque la réplica esté en otro.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-shuffle text-neon-orange"></i> Balanceo de carga de servicio</h2>
+                <div class="flow">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">Cliente</div>
+                        <p class="small muted">curl http://nodo:8080</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">Swarm</div>
+                        <p class="small muted">puerto publicado + routing mesh</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">Tasks</div>
+                        <p class="small muted">web.1 · web.2 · web.3</p>
+                    </div>
+                </div>
+                <div class="card card-purple" style="margin-top: 24px;">
+                    <p style="font-size: 0.8em; margin: 0;"><strong class="text-purple">Mensaje para sistemas operativos y redes:</strong> el servicio abstrae un conjunto de procesos distribuidos y Swarm ofrece un punto lógico de entrada para balancear tráfico hacia ellos.</p>
+                </div>
+                <aside class="notes">No profundices demasiado en IPVS en esta primera clase. Puedes mencionarlo oralmente como mecanismo de balanceo L4 usado por Swarm.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-layer-group text-purple"></i> Overlay networks</h2>
+                <div class="card">
+                    <div class="terminal-title"># Red virtual distribuida entre nodos</div>
+                    <pre><code class="language-bash">docker network create \
+  --driver overlay \
+  appnet</code></pre>
+                </div>
+                <div class="grid-2" style="margin-top: 22px;">
+                    <div class="card card-purple">
+                        <div class="badge badge-purple">Qué resuelve</div>
+                        <p class="small muted">Permite que servicios ubicados en diferentes hosts se comuniquen como si estuvieran en una misma red lógica.</p>
+                    </div>
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Cómo se usa</div>
+                        <p class="small muted">Los servicios se conectan a la red overlay usando <code>--network appnet</code> o mediante un stack.</p>
+                    </div>
+                </div>
+                <aside class="notes">Contrasta rápidamente bridge network, que es local al host, con overlay network, que cruza hosts dentro del Swarm.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-database text-neon-blue"></i> Mini-demo: Drupal + PostgreSQL</h2>
+                <div class="card">
+                    <div class="terminal-title"># Crear red y servicio de base de datos</div>
+                    <pre><code class="language-bash">docker network create --driver overlay mydrupal
+
+docker service create \
+  --name psql \
+  --network mydrupal \
+  -e POSTGRES_PASSWORD=mypass \
+  postgres:14</code></pre>
+                </div>
+                <div class="card" style="margin-top: 18px;">
+                    <div class="terminal-title"># Crear servicio web conectado a la misma red</div>
+                    <pre><code class="language-bash">docker service create \
+  --name drupal \
+  --network mydrupal \
+  -p 8080:80 \
+  drupal:9</code></pre>
+                </div>
+                <aside class="notes">Este ejemplo conecta con la práctica del material base. No es necesario configurar Drupal completo; basta observar servicios, red y publicación de puerto.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-sitemap text-green"></i> ¿Cómo se comunican?</h2>
+                <div class="flow-4">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">Usuario</div>
+                        <p class="tiny muted">Navegador</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">Puerto publicado</div>
+                        <p class="tiny muted">:8080</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">drupal</div>
+                        <p class="tiny muted">servicio web</p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-purple center">
+                        <div class="badge badge-purple">psql</div>
+                        <p class="tiny muted">servicio BD</p>
+                    </div>
+                </div>
+                <div class="card card-purple" style="margin-top: 25px;">
+                    <p style="font-size: 0.8em; margin: 0;">Drupal accede a PostgreSQL usando el nombre lógico del servicio, por ejemplo <code>psql</code>, dentro de la red overlay <code>mydrupal</code>.</p>
+                </div>
+                <aside class="notes">Haz que los estudiantes diferencien tráfico norte-sur: usuario hacia Drupal; y tráfico este-oeste: Drupal hacia PostgreSQL.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-magnifying-glass-chart text-neon-orange"></i> Comandos de observación</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="terminal-title"># Ver redes</div>
+                        <pre><code class="language-bash">docker network ls
+
+docker network inspect mydrupal</code></pre>
+                    </div>
+                    <div class="card">
+                        <div class="terminal-title"># Ver servicios y ubicación de tasks</div>
+                        <pre><code class="language-bash">docker service ls
+
+docker service ps drupal
+
+docker service ps psql</code></pre>
+                    </div>
+                </div>
+                <div class="card card-blue" style="margin-top: 22px;">
+                    <p style="font-size: 0.8em; margin: 0;"><strong class="text-neon-blue">Objetivo:</strong> no memorizar comandos, sino observar cómo Swarm conecta puertos publicados, redes overlay, servicios y tasks.</p>
+                </div>
+                <aside class="notes">Si el grupo trabaja con varios nodos, pídeles identificar en qué nodo está cada task y desde qué nodo pueden acceder al puerto publicado.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-triangle-exclamation text-red"></i> Advertencias operativas</h2>
+                <div class="grid-2">
+                    <div class="card card-green">
+                        <div class="badge badge-green">Servicios stateless</div>
+                        <h4>Más fáciles de escalar</h4>
+                        <p class="small muted">APIs REST, servidores web y frontends suelen funcionar bien con réplicas y balanceo.</p>
+                    </div>
+                    <div class="card card-red">
+                        <div class="badge badge-red">Servicios stateful</div>
+                        <h4>Requieren más diseño</h4>
+                        <p class="small muted">Bases de datos, colas y almacenamiento persistente necesitan estrategia de volúmenes, ubicación y respaldo.</p>
+                    </div>
+                </div>
+                <div class="card card-orange" style="margin-top: 24px; text-align:center;">
+                    <p style="font-size: 0.82em; margin: 0;">Escalar Drupal no es lo mismo que escalar PostgreSQL.</p>
+                </div>
+                <aside class="notes">Refuerza una idea crítica: Swarm facilita orquestación, pero no elimina los problemas fundamentales de datos persistentes y consistencia.</aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-brain text-neon-orange"></i> Preguntas para discusión</h2>
+                <div class="card card-orange">
+                    <ul>
+                        <li>Si un servicio publica el puerto <code>8080</code>, ¿desde cuáles nodos del Swarm debería poder recibir tráfico?</li>
+                        <li>¿Qué diferencia hay entre exponer un puerto y conectar servicios a una red overlay?</li>
+                        <li>Si Drupal y PostgreSQL están en nodos distintos, ¿qué mecanismo permite su comunicación?</li>
+                        <li>¿Por qué escalar un servidor web suele ser más sencillo que escalar una base de datos?</li>
+                    </ul>
+                </div>
+                <div class="card card-blue" style="margin-top: 22px; text-align:center;">
+                    <p style="font-size: 0.78em; margin: 0;"><strong class="text-neon-blue">Siguiente paso:</strong> convertir esta aplicación multi-servicio en un despliegue declarativo usando <code>docker stack deploy</code>.</p>
+                </div>
+                <aside class="notes">Estas preguntas se pueden convertir en Kahoot. Deben verificar comprensión conceptual, no solo sintaxis de comandos.</aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>
