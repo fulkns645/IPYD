@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm 04: Laboratorio 1 - Crear el Swarm y desplegar un servicio</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f43f5e;
+            --accent-purple: #a78bfa;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal {
+            font-family: 'Urbanist', sans-serif;
+            background-color: var(--bg-main);
+            color: #f8fafc;
+        }
+
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+            font-family: 'Urbanist', sans-serif;
+            text-transform: none;
+            font-weight: 800;
+        }
+
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-purple { color: var(--accent-purple); }
+        .muted { color: var(--text-muted); }
+        .center { text-align: center; }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: stretch;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        .card {
+            background: var(--slide-bg);
+            padding: 24px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+
+        .card-blue { border-color: rgba(56, 189, 248, 0.45); }
+        .card-orange { border-color: rgba(251, 146, 60, 0.45); }
+        .card-green { border-color: rgba(34, 197, 94, 0.45); }
+        .card-red { border-color: rgba(244, 63, 94, 0.45); }
+        .card-purple { border-color: rgba(167, 139, 250, 0.45); }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.55em;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.18); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-red { background: rgba(244, 63, 94, 0.18); color: var(--accent-red); border: 1px solid var(--accent-red); }
+        .badge-purple { background: rgba(167, 139, 250, 0.18); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+
+        pre {
+            background: var(--code-bg) !important;
+            border-radius: 10px !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            margin: 0 !important;
+            font-size: 0.63em !important;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace !important;
+        }
+
+        .reveal .slides section {
+            text-align: left;
+        }
+
+        .reveal .slides section h2 {
+            text-align: center;
+            margin-bottom: 34px;
+        }
+
+        .reveal ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .reveal ul li {
+            margin-bottom: 13px;
+            position: relative;
+            padding-left: 30px;
+            font-size: 0.76em;
+            line-height: 1.35;
+        }
+
+        .reveal ul li::before {
+            content: "\f121";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+        }
+
+        .small { font-size: 0.72em; line-height: 1.38; }
+        .tiny { font-size: 0.62em; line-height: 1.3; }
+        .big-number { font-size: 2.1em; font-weight: 800; margin: 0; }
+        .terminal-label { font-size: 0.56em; color: var(--text-muted); margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; }
+
+        .step {
+            display: grid;
+            grid-template-columns: 52px 1fr;
+            gap: 16px;
+            align-items: start;
+            margin-bottom: 14px;
+        }
+
+        .step-number {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: rgba(56, 189, 248, 0.18);
+            border: 1px solid var(--accent-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: var(--accent-primary);
+        }
+
+        .diagram-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .arrow {
+            font-size: 1.3em;
+            color: var(--accent-secondary);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div style="text-align: center; margin-top: 35px;">
+                    <div class="badge badge-green">Laboratorio 1</div>
+                    <h1 style="font-size: 2.15em;">Crear el <span class="text-neon-blue">Swarm</span> y desplegar un <span class="text-neon-orange">servicio</span></h1>
+                    <h3 class="text-neon-orange" style="font-size: 1.05em;">Docker Swarm 04: del comando al estado observable</h3>
+                    <p class="muted" style="font-size: 0.78em; margin-top: 22px;">Objetivo: crear un clúster mínimo, declarar un servicio y observar sus réplicas.</p>
+                    <div style="margin-top: 40px; opacity: 0.65; font-size: 0.75em;">
+                        <i class="fa-solid fa-terminal"></i> Duración sugerida: 15 minutos | Actividad guiada
+                    </div>
+                </div>
+                <aside class="notes">
+                    Presenta esta sección como el primer contacto práctico con Swarm. La idea no es memorizar comandos, sino ver cómo un comando declara estado y cómo Swarm lo materializa.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-bullseye text-neon-blue"></i> Qué debe pasar en este laboratorio</h2>
+                <div class="grid-3">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">1</div>
+                        <h4 style="font-size: 0.85em;">Inicializar</h4>
+                        <p class="small muted">Convertir el nodo actual en el primer manager del Swarm.</p>
+                    </div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">2</div>
+                        <h4 style="font-size: 0.85em;">Desplegar</h4>
+                        <p class="small muted">Crear un servicio HTTP simple usando una imagen pública.</p>
+                    </div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">3</div>
+                        <h4 style="font-size: 0.85em;">Observar</h4>
+                        <p class="small muted">Ver el servicio, sus tasks y los contenedores que lo ejecutan.</p>
+                    </div>
+                </div>
+                <div class="card card-purple" style="margin-top: 24px;">
+                    <p class="small" style="margin: 0;"><strong class="text-purple">Idea clave:</strong> no vamos a “levantar un contenedor”; vamos a declarar un <strong>servicio</strong> que Swarm debe mantener activo.</p>
+                </div>
+                <aside class="notes">
+                    Marca la diferencia con Docker run. Aquí el estudiante está empezando a usar un objeto del orquestador: el service.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-screwdriver-wrench text-neon-orange"></i> Prerrequisitos rápidos</h2>
+                <div class="grid-2">
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Entorno</div>
+                        <ul>
+                            <li>Docker Engine instalado.</li>
+                            <li>Usuario con permiso para ejecutar Docker.</li>
+                            <li>Acceso a terminal en el nodo manager.</li>
+                            <li>Imagen <code>nginx</code> disponible o acceso a Internet para descargarla.</li>
+                        </ul>
+                    </div>
+                    <div class="card card-orange">
+                        <div class="badge badge-orange">Escenario mínimo</div>
+                        <ul>
+                            <li>Una máquina basta para comenzar.</li>
+                            <li>Ideal: un manager y dos workers.</li>
+                            <li>Si hay varias interfaces de red, puede ser necesario usar <code>--advertise-addr</code>.</li>
+                            <li>Los comandos iniciales se ejecutan en el manager.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Aclara que se puede hacer un primer laboratorio con un solo nodo. En ambientes con Vagrant o sala de cómputo se puede extender a multinodo.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-play text-neon-blue"></i> Paso 1: inicializar el Swarm</h2>
+                <div class="card card-blue">
+                    <div class="terminal-label">manager$</div>
+                    <pre><code class="language-bash">docker swarm init</code></pre>
+                </div>
+                <div class="grid-2" style="margin-top: 22px;">
+                    <div class="card card-green">
+                        <h4 class="text-green" style="font-size: 0.85em;">Resultado esperado</h4>
+                        <p class="small muted">El nodo actual queda como <strong>manager</strong> y Swarm entrega un comando <code>docker swarm join</code> para agregar workers.</p>
+                    </div>
+                    <div class="card card-orange">
+                        <h4 class="text-neon-orange" style="font-size: 0.85em;">Cuando hay varias IP</h4>
+                        <pre><code class="language-bash">docker swarm init \
+  --advertise-addr 192.168.56.10</code></pre>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Explica que advertise-addr indica la dirección que otros nodos usarán para contactar al manager. Esto es común en Vagrant, laboratorios y equipos con WiFi/Ethernet.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-network-wired text-neon-blue"></i> Paso 2: inspeccionar los nodos</h2>
+                <div class="card card-blue">
+                    <div class="terminal-label">manager$</div>
+                    <pre><code class="language-bash">docker node ls</code></pre>
+                </div>
+                <div class="card card-purple" style="margin-top: 20px;">
+                    <p class="small" style="margin: 0 0 14px 0;"><strong class="text-purple">Lectura de la salida:</strong></p>
+                    <div class="grid-3">
+                        <div>
+                            <div class="badge badge-blue">STATUS</div>
+                            <p class="tiny muted">Indica si el nodo está disponible para el clúster. Ejemplo: <code>Ready</code>.</p>
+                        </div>
+                        <div>
+                            <div class="badge badge-orange">AVAILABILITY</div>
+                            <p class="tiny muted">Indica si el nodo puede recibir tasks. Ejemplo: <code>Active</code>.</p>
+                        </div>
+                        <div>
+                            <div class="badge badge-green">MANAGER STATUS</div>
+                            <p class="tiny muted">Indica si el nodo participa en el plano de control. Ejemplo: <code>Leader</code>.</p>
+                        </div>
+                    </div>
+                </div>
+                <aside class="notes">
+                    La lectura de docker node ls ayuda a conectar el comando con la arquitectura vista en la sección anterior: manager, worker y líder.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-cube text-neon-orange"></i> Paso 3: crear un servicio web</h2>
+                <div class="card card-orange">
+                    <div class="terminal-label">manager$</div>
+                    <pre><code class="language-bash">docker service create \
+  --name web \
+  -p 8080:80 \
+  nginx:alpine</code></pre>
+                </div>
+                <div class="diagram-row" style="margin-top: 22px;">
+                    <div class="card card-blue center">
+                        <div class="badge badge-blue">Solicitud</div>
+                        <p class="small muted">Crear servicio <code>web</code></p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-orange center">
+                        <div class="badge badge-orange">Imagen</div>
+                        <p class="small muted"><code>nginx:alpine</code></p>
+                    </div>
+                    <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="card card-green center">
+                        <div class="badge badge-green">Puerto</div>
+                        <p class="small muted"><code>8080 → 80</code></p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Explica que -p 8080:80 publica el servicio para poder acceder desde el host o desde el clúster, dependiendo del escenario.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-magnifying-glass-chart text-neon-blue"></i> Paso 4: observar servicio, task y contenedor</h2>
+                <div class="grid-2">
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Servicio</div>
+                        <pre><code class="language-bash">docker service ls</code></pre>
+                        <p class="tiny muted" style="margin-top: 10px;">Muestra el servicio, modo, réplicas, imagen y puertos.</p>
+                    </div>
+                    <div class="card card-orange">
+                        <div class="badge badge-orange">Tasks</div>
+                        <pre><code class="language-bash">docker service ps web</code></pre>
+                        <p class="tiny muted" style="margin-top: 10px;">Muestra las tasks y el nodo donde fueron ubicadas.</p>
+                    </div>
+                </div>
+                <div class="card card-green" style="margin-top: 20px;">
+                    <div class="badge badge-green">Contenedor real</div>
+                    <pre><code class="language-bash">docker container ls</code></pre>
+                    <p class="tiny muted" style="margin-top: 10px;">En el nodo donde corre la task, debe aparecer un contenedor asociado al servicio.</p>
+                </div>
+                <aside class="notes">
+                    Esta diapositiva es clave. El estudiante debe diferenciar el objeto lógico service, la task asignada por Swarm y el contenedor que realmente corre.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-up-right-and-down-left-from-center text-neon-orange"></i> Paso 5: escalar el servicio</h2>
+                <div class="card card-orange">
+                    <div class="terminal-label">manager$</div>
+                    <pre><code class="language-bash">docker service scale web=3
+
+docker service ls
+docker service ps web</code></pre>
+                </div>
+                <div class="grid-3" style="margin-top: 22px;">
+                    <div class="card card-blue center">
+                        <p class="big-number text-neon-blue">1</p>
+                        <p class="small muted">service</p>
+                    </div>
+                    <div class="card card-orange center">
+                        <p class="big-number text-neon-orange">3</p>
+                        <p class="small muted">tasks deseadas</p>
+                    </div>
+                    <div class="card card-green center">
+                        <p class="big-number text-green">3</p>
+                        <p class="small muted">contenedores esperados</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Conecta explícitamente con estado deseado: ahora el estado deseado del servicio web es 3 réplicas. Swarm debe materializar ese estado.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-globe text-neon-blue"></i> Paso 6: validar acceso al servicio</h2>
+                <div class="grid-2">
+                    <div class="card card-blue">
+                        <div class="badge badge-blue">Desde navegador</div>
+                        <pre><code class="language-text">http://IP_DEL_MANAGER:8080</code></pre>
+                        <p class="tiny muted" style="margin-top: 10px;">Debe aparecer la página de bienvenida de Nginx.</p>
+                    </div>
+                    <div class="card card-orange">
+                        <div class="badge badge-orange">Desde terminal</div>
+                        <pre><code class="language-bash">curl http://localhost:8080
+curl http://IP_DEL_NODO:8080</code></pre>
+                        <p class="tiny muted" style="margin-top: 10px;">La validación ayuda a observar la publicación del puerto.</p>
+                    </div>
+                </div>
+                <div class="card card-purple" style="margin-top: 22px;">
+                    <p class="small" style="margin: 0;"><strong class="text-purple">Pregunta guía:</strong> si hay 3 réplicas, ¿estamos accediendo a un contenedor específico o a un servicio publicado?</p>
+                </div>
+                <aside class="notes">
+                    Deja planteado el concepto de servicio publicado antes de entrar más adelante al routing mesh. No profundizar demasiado aquí.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-list-check text-neon-green"></i> Checklist del laboratorio</h2>
+                <div class="card card-green" style="max-width: 900px; margin: 0 auto;">
+                    <ul>
+                        <li>El nodo actual quedó inicializado como manager.</li>
+                        <li><code>docker node ls</code> muestra el estado del clúster.</li>
+                        <li>El servicio <code>web</code> fue creado con una imagen Nginx.</li>
+                        <li><code>docker service ls</code> muestra el número de réplicas.</li>
+                        <li><code>docker service ps web</code> muestra las tasks y su ubicación.</li>
+                        <li>El servicio fue escalado a 3 réplicas.</li>
+                        <li>El puerto <code>8080</code> permite acceder al servicio.</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Úsala para cerrar el laboratorio y verificar que todos llegaron al mismo punto antes de pasar a la siguiente sección.
+                </aside>
+            </section>
+
+            <section data-background-color="#0f172a">
+                <h2><i class="fa-solid fa-comments text-neon-orange"></i> Preguntas para discusión</h2>
+                <div class="card card-orange">
+                    <ul>
+                        <li>¿Qué diferencia hay entre ejecutar <code>docker run nginx</code> y crear un servicio con <code>docker service create</code>?</li>
+                        <li>Cuando escalamos <code>web=3</code>, ¿qué objeto estamos escalando realmente?</li>
+                        <li>¿Por qué <code>docker service ps web</code> muestra información diferente a <code>docker container ls</code>?</li>
+                        <li>¿Qué significa que el servicio tenga un estado deseado de 3 réplicas?</li>
+                        <li>Si una task queda en estado fallido, ¿qué esperaríamos que hiciera el orquestador?</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Estas preguntas pueden convertirse después en preguntas tipo Kahoot. Sirven para revisar comprensión conceptual antes de continuar con resiliencia y fallos.
+                </aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

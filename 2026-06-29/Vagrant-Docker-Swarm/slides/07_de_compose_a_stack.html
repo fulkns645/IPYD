@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docker Swarm 07: De Compose a Stack</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css" id="theme">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/monokai-sublime.min.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-main: #020617;
+            --slide-bg: #0f172a;
+            --accent-primary: #38bdf8;
+            --accent-secondary: #fb923c;
+            --accent-green: #22c55e;
+            --accent-red: #f43f5e;
+            --accent-purple: #a78bfa;
+            --text-muted: #94a3b8;
+            --code-bg: #1e293b;
+        }
+
+        .reveal { font-family: 'Urbanist', sans-serif; background-color: var(--bg-main); color: #f8fafc; }
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4 { font-family: 'Urbanist', sans-serif; text-transform: none; font-weight: 800; }
+        .text-neon-blue { color: var(--accent-primary); text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .text-neon-orange { color: var(--accent-secondary); text-shadow: 0 0 10px rgba(251, 146, 60, 0.5); }
+        .text-green { color: var(--accent-green); }
+        .text-red { color: var(--accent-red); }
+        .text-purple { color: var(--accent-purple); }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: stretch; }
+
+        .card {
+            background: var(--slide-bg);
+            padding: 22px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+        .mini-card {
+            background: rgba(15, 23, 42, 0.7);
+            padding: 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.08);
+            text-align: center;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.55em;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.04em;
+        }
+        .badge-blue { background: rgba(56, 189, 248, 0.2); color: var(--accent-primary); border: 1px solid var(--accent-primary); }
+        .badge-orange { background: rgba(251, 146, 60, 0.2); color: var(--accent-secondary); border: 1px solid var(--accent-secondary); }
+        .badge-green { background: rgba(34, 197, 94, 0.18); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-purple { background: rgba(167, 139, 250, 0.18); color: var(--accent-purple); border: 1px solid var(--accent-purple); }
+
+        pre { background: var(--code-bg) !important; border-radius: 10px !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; font-size: 0.55em !important; }
+        code { font-family: 'JetBrains Mono', monospace !important; }
+
+        .reveal .slides section { text-align: left; }
+        .reveal .slides section h2 { text-align: center; margin-bottom: 32px; }
+        .reveal ul { list-style-type: none; padding-left: 0; }
+        .reveal ul li { margin-bottom: 13px; position: relative; padding-left: 30px; font-size: 0.78em; line-height: 1.25; }
+        .reveal ul li::before {
+            content: "\f121";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+        }
+        .muted { color: var(--text-muted); }
+        .center { text-align: center; }
+        .big-icon { font-size: 2.4em; margin-bottom: 12px; }
+        .arrow { color: var(--accent-secondary); font-size: 1.4em; text-align: center; align-self: center; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <section data-background-color="#020617">
+                <div style="text-align: center; margin-top: 35px;">
+                    <div class="badge badge-blue">Docker Swarm · Sección 07</div>
+                    <h1 style="font-size: 2.25em;">De <span class="text-neon-blue">Compose</span> a <span class="text-neon-orange">Stack</span></h1>
+                    <h3 class="text-neon-orange" style="font-size: 1.05em;">Declarar una aplicación multi-servicio para un clúster</h3>
+                    <p class="muted" style="font-size: 0.78em; margin-top: 20px;">Servicios, redes, volúmenes y políticas de despliegue en Swarm</p>
+                    <div style="margin-top: 42px; opacity: 0.65; font-size: 0.75em;">
+                        <i class="fa-solid fa-layer-group"></i> Duración estimada: 15 minutos | Teórico-práctico
+                    </div>
+                </div>
+                <aside class="notes">
+                    Esta sección conecta directamente con lo que los estudiantes ya conocen: Docker Compose. La idea es mostrar que Stack no es simplemente otro comando, sino una forma de llevar una definición multi-servicio al plano de orquestación.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-question-circle text-neon-blue"></i> Pregunta de entrada</h2>
+                <div class="card center" style="max-width: 920px; margin: 0 auto;">
+                    <p style="font-size: 1.02em; line-height: 1.35; margin-bottom: 20px;">
+                        Ya sabemos declarar varios contenedores con <code>docker compose</code>.
+                    </p>
+                    <p style="font-size: 1.12em; line-height: 1.35; margin: 0;">
+                        Entonces, ¿qué cambia cuando queremos ejecutar esa aplicación en un <span class="text-neon-orange">Swarm</span>?
+                    </p>
+                </div>
+                <div class="grid-3" style="margin-top: 26px; font-size: 0.72em;">
+                    <div class="mini-card"><i class="fa-solid fa-server text-neon-blue big-icon"></i><br>Más de un nodo</div>
+                    <div class="mini-card"><i class="fa-solid fa-copy text-neon-orange big-icon"></i><br>Réplicas y estado deseado</div>
+                    <div class="mini-card"><i class="fa-solid fa-network-wired text-green big-icon"></i><br>Redes distribuidas</div>
+                </div>
+                <aside class="notes">
+                    Invitar a los estudiantes a responder desde lo que ya han visto. No resolver todavía todo: usar esta pregunta como transición.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-code-compare text-neon-orange"></i> Compose vs Stack</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-blue">docker compose up</div>
+                        <h4 style="font-size: 0.92em;">Aplicación multi-contenedor</h4>
+                        <p class="muted" style="font-size: 0.72em; line-height: 1.35;">Levanta servicios definidos en un archivo YAML, usualmente en un solo host Docker.</p>
+                        <ul>
+                            <li>Ideal para desarrollo y pruebas locales.</li>
+                            <li>Control directo sobre contenedores.</li>
+                            <li>No requiere un clúster.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-orange">docker stack deploy</div>
+                        <h4 style="font-size: 0.92em;">Aplicación orquestada</h4>
+                        <p class="muted" style="font-size: 0.72em; line-height: 1.35;">Declara servicios para que Swarm los distribuya, escale y mantenga en un clúster.</p>
+                        <ul>
+                            <li>Trabaja con services, tasks y nodes.</li>
+                            <li>Usa redes overlay del clúster.</li>
+                            <li>Permite políticas de despliegue.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Aclarar que un archivo parecido puede usarse en ambos escenarios, pero el modelo de ejecución cambia. En Stack, Swarm decide dónde y cómo ejecutar las tareas.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-layer-group text-neon-blue"></i> ¿Qué es un Stack?</h2>
+                <div class="card" style="max-width: 950px; margin: 0 auto;">
+                    <p style="font-size: 0.9em; line-height: 1.35; text-align: center;">
+                        Un <span class="text-neon-orange">stack</span> agrupa los recursos que componen una aplicación desplegada sobre Swarm.
+                    </p>
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 16px; align-items: center; margin-top: 26px;">
+                        <div class="mini-card">
+                            <div class="badge badge-blue">Services</div>
+                            <p class="muted" style="font-size: 0.7em; margin: 0;">Unidades lógicas escalables.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-plus"></i></div>
+                        <div class="mini-card">
+                            <div class="badge badge-green">Networks</div>
+                            <p class="muted" style="font-size: 0.7em; margin: 0;">Comunicación entre servicios.</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-plus"></i></div>
+                        <div class="mini-card">
+                            <div class="badge badge-purple">Volumes</div>
+                            <p class="muted" style="font-size: 0.7em; margin: 0;">Persistencia de datos.</p>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 24px; background: rgba(56, 189, 248, 0.08);">
+                        <p style="font-size: 0.78em; margin: 0;"><strong class="text-neon-blue">Idea clave:</strong> un stack permite declarar la aplicación completa, no comandos aislados de servicios.</p>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Enlazar con la definición usada en el material: stack como conjunción de services, volumes y overlay networks. Reforzar que el stack es la unidad lógica de despliegue de una aplicación.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-file-code text-neon-orange"></i> Un archivo Compose para Swarm</h2>
+                <div class="card">
+                    <pre><code class="language-yaml">version: "3.9"
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    networks:
+      - appnet
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+
+networks:
+  appnet:
+    driver: overlay</code></pre>
+                </div>
+                <div style="margin-top: 18px; font-size: 0.75em;">
+                    <ul>
+                        <li><code>services</code>: declara los servicios de la aplicación.</li>
+                        <li><code>networks</code>: define una red overlay para comunicación distribuida.</li>
+                        <li><code>deploy</code>: expresa decisiones de orquestación propias de Swarm.</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Mostrar que la sección deploy es particularmente importante en Swarm. No detenerse demasiado en todos los atributos posibles; solo explicar réplicas y política de reinicio.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-terminal text-neon-blue"></i> Desplegar el Stack</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-orange">Comando</div>
+                        <pre><code class="language-bash">docker stack deploy \
+  -c compose.yml \
+  demo</code></pre>
+                        <p class="muted" style="font-size: 0.72em; margin-top: 18px;">El nombre <code>demo</code> se convierte en el identificador del stack.</p>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-blue">Efecto</div>
+                        <ul>
+                            <li>Swarm lee la especificación.</li>
+                            <li>Crea servicios, redes y volúmenes.</li>
+                            <li>Programa tasks en los nodos disponibles.</li>
+                            <li>Empieza a mantener el estado deseado.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Aclarar que el despliegue no crea “un contenedor llamado web”, sino un servicio dentro del namespace del stack, por ejemplo demo_web.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-magnifying-glass-chart text-neon-orange"></i> Inspeccionar el Stack</h2>
+                <div class="card">
+                    <pre><code class="language-bash">docker stack ls
+
+docker stack services demo
+
+docker stack ps demo
+
+docker service ls
+
+docker service ps demo_web</code></pre>
+                </div>
+                <div class="grid-2" style="margin-top: 20px; font-size: 0.72em;">
+                    <div class="mini-card">
+                        <span class="text-neon-blue"><strong>stack services</strong></span><br>
+                        <span class="muted">Vista lógica de los servicios del stack.</span>
+                    </div>
+                    <div class="mini-card">
+                        <span class="text-neon-orange"><strong>stack ps</strong></span><br>
+                        <span class="muted">Vista operacional de las tasks y nodos.</span>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Insistir en la lectura de los comandos: stack services responde “qué servicios existen”; stack ps responde “dónde están ejecutándose sus tareas”.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-diagram-project text-neon-blue"></i> Del YAML al clúster</h2>
+                <div class="card" style="max-width: 980px; margin: 0 auto;">
+                    <div style="display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; gap: 12px; align-items: center;">
+                        <div class="mini-card">
+                            <i class="fa-solid fa-file-code text-neon-blue big-icon"></i>
+                            <div class="badge badge-blue">compose.yml</div>
+                            <p class="muted" style="font-size: 0.66em; margin: 0;">Declaración</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="mini-card">
+                            <i class="fa-solid fa-layer-group text-neon-orange big-icon"></i>
+                            <div class="badge badge-orange">Stack</div>
+                            <p class="muted" style="font-size: 0.66em; margin: 0;">Aplicación</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="mini-card">
+                            <i class="fa-solid fa-cubes text-purple big-icon"></i>
+                            <div class="badge badge-purple">Services</div>
+                            <p class="muted" style="font-size: 0.66em; margin: 0;">Estado deseado</p>
+                        </div>
+                        <div class="arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                        <div class="mini-card">
+                            <i class="fa-solid fa-server text-green big-icon"></i>
+                            <div class="badge badge-green">Tasks</div>
+                            <p class="muted" style="font-size: 0.66em; margin: 0;">Ejecución en nodos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="max-width: 900px; margin: 22px auto 0; background: rgba(251, 146, 60, 0.08);">
+                    <p style="font-size: 0.78em; margin: 0;"><strong class="text-neon-orange">Traducción mental:</strong> el YAML describe lo que quiero; Swarm decide cómo materializarlo en el clúster.</p>
+                </div>
+                <aside class="notes">
+                    Esta diapositiva busca consolidar el modelo conceptual. El archivo no “ejecuta contenedores”; declara servicios que se convierten en tareas distribuidas.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-triangle-exclamation text-neon-orange"></i> Diferencias y advertencias</h2>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="badge badge-blue">Importante</div>
+                        <ul>
+                            <li>Las imágenes deben estar disponibles para todos los nodos.</li>
+                            <li>El stack usa servicios, no contenedores individuales.</li>
+                            <li>Los nombres suelen quedar prefijados por el nombre del stack.</li>
+                            <li>Las redes overlay son naturales en este contexto.</li>
+                        </ul>
+                    </div>
+                    <div class="card">
+                        <div class="badge badge-orange">Cuidado</div>
+                        <ul>
+                            <li>No todo archivo Compose se comporta igual en Swarm.</li>
+                            <li>Algunas opciones de Compose local pueden ser ignoradas.</li>
+                            <li>Los servicios con estado requieren diseño adicional.</li>
+                            <li>Construir imágenes localmente no basta si hay varios nodos.</li>
+                        </ul>
+                    </div>
+                </div>
+                <aside class="notes">
+                    Advertencia práctica importante: si un servicio usa una imagen construida localmente solo en el manager, un worker no podrá ejecutarla. Se necesita registry o construirla en cada nodo.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-broom text-neon-blue"></i> Retirar el Stack</h2>
+                <div class="card" style="max-width: 840px; margin: 0 auto;">
+                    <pre><code class="language-bash">docker stack rm demo
+
+docker stack ls
+
+docker service ls
+
+docker network ls</code></pre>
+                </div>
+                <div class="card" style="max-width: 900px; margin: 22px auto 0; background: rgba(56, 189, 248, 0.08);">
+                    <p style="font-size: 0.78em; margin: 0;"><strong class="text-neon-blue">Lectura operacional:</strong> eliminar el stack remueve los servicios asociados, pero conviene verificar redes, volúmenes y recursos persistentes.</p>
+                </div>
+                <aside class="notes">
+                    La eliminación del stack es una buena oportunidad para reforzar higiene operacional. En entornos reales, los volúmenes y datos requieren tratamiento cuidadoso.
+                </aside>
+            </section>
+
+            <section>
+                <h2><i class="fa-solid fa-check-circle text-neon-blue"></i> Takeaways</h2>
+                <div class="card" style="max-width: 930px; margin: 0 auto; font-size: 0.78em;">
+                    <ul>
+                        <li><code>docker compose up</code> y <code>docker stack deploy</code> no son equivalentes: responden a modelos de ejecución distintos.</li>
+                        <li>Un stack agrupa servicios, redes y volúmenes como una aplicación desplegable.</li>
+                        <li>La sección <code>deploy</code> expresa decisiones de orquestación: réplicas, reinicio, ubicación y actualización.</li>
+                        <li>Swarm transforma la especificación declarativa en services, tasks y contenedores distribuidos.</li>
+                        <li>Para aplicaciones con imágenes propias, se necesita pensar en registry y disponibilidad de imágenes en todos los nodos.</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Resumir conectando con las secciones anteriores: estado deseado, servicios, tareas y redes. Esta es la pieza que permite pasar de comandos manuales a una especificación reproducible.
+                </aside>
+            </section>
+
+            <section data-background-color="#0f172a">
+                <h2><i class="fa-solid fa-brain text-neon-orange"></i> Preguntas para discusión</h2>
+                <div class="card" style="max-width: 940px; margin: 0 auto; font-size: 0.78em;">
+                    <ul>
+                        <li>¿Qué diferencia conceptual hay entre declarar un contenedor en Compose y declarar un servicio en Swarm?</li>
+                        <li>¿Por qué una imagen construida localmente puede fallar cuando el servicio se programa en un worker?</li>
+                        <li>¿Qué información aporta <code>docker stack services</code> que no aporta directamente <code>docker stack ps</code>?</li>
+                        <li>¿Qué riesgos aparecen al llevar una base de datos desde Compose local hacia un stack distribuido?</li>
+                        <li>¿Qué elementos del YAML representan infraestructura y cuáles representan aplicación?</li>
+                    </ul>
+                </div>
+                <aside class="notes">
+                    Estas preguntas pueden convertirse luego en Kahoot. Buscar que distingan stack, service, task, image availability y persistencia.
+                </aside>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+
+    <script>
+        Reveal.initialize({
+            hash: true,
+            history: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ]
+        });
+    </script>
+</body>
+</html>

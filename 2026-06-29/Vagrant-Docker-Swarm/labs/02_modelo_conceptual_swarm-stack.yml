@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  web:
+    image: traefik/whoami:v1.10
+    networks:
+      - appnet
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: any
+
+networks:
+  appnet:
+    driver: overlay
+    attachable: true
